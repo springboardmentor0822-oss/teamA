@@ -1,19 +1,101 @@
+import { useState } from "react";
 import "./civic.css";
 
-const Dashboard = ({ userData, onLogout, onNavigate }) => {
+const CreatePetition = ({ userData, onNavigate }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
-  const userLocation = user.location || 'Not Set';
+  const userLocation = user.location || 'Bangalore';
   const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
-  
-  // Calculate user's petition count
-  const savedPetitions = JSON.parse(localStorage.getItem('civix_petitions')) || [];
-  const myPetitionsCount = savedPetitions.filter(pet => pet.createdBy === userEmail).length;
+
+  // Indian locations
+  const indianLocations = [
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chhattisgarh",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+    "Delhi",
+    "Ladakh",
+    "Jammu & Kashmir",
+  ];
+
+  const [formData, setFormData] = useState({
+    title: "",
+    category: "Environment",
+    state: userLocation,
+    city: "",
+    signatureGoal: 100,
+    description: "",
+  });
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    // Create new petition with current user info
+    const newPetition = {
+      id: Date.now(),
+      title: formData.title,
+      description: formData.description,
+      category: formData.category,
+      state: formData.state,
+      city: formData.city,
+      location: formData.state, // For filtering by state
+      signatures: 0,
+      goal: formData.signatureGoal,
+      status: "Active",
+      createdAt: "just now",
+      createdBy: userEmail,
+    };
+    
+    // Get existing petitions from localStorage
+    const existingPetitions = JSON.parse(localStorage.getItem('civix_petitions')) || [];
+    
+    // Add new petition
+    const updatedPetitions = [newPetition, ...existingPetitions];
+    
+    // Save to localStorage
+    localStorage.setItem('civix_petitions', JSON.stringify(updatedPetitions));
+    
+    console.log("Petition created:", newPetition);
+    onNavigate("petitions");
+  };
 
   return (
     <div className="dashboard-page">
+      {/* Topbar */}
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">
@@ -39,10 +121,10 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
         </div>
 
         <nav className="topnav">
-          <a className="active" onClick={() => onNavigate("dashboard")}>
-            Home
+          <a onClick={() => onNavigate("dashboard")}>Home</a>
+          <a onClick={() => onNavigate("petitions")} className="active">
+            Petitions
           </a>
-          <a onClick={() => onNavigate("petitions")}>Petitions</a>
           <a onClick={() => onNavigate("polls")}>Polls</a>
           <a onClick={() => onNavigate("reports")}>Reports</a>
         </nav>
@@ -67,13 +149,12 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
           </button>
           <div className="avatar">{userInitial}</div>
           <span className="user-name">{displayName}</span>
-          <span className="chevron" aria-hidden="true">
-            v
-          </span>
+          <span className="chevron" aria-hidden="true">v</span>
         </div>
       </header>
 
       <div className="layout">
+        {/* Sidebar */}
         <aside className="sidebar">
           <div className="profile-card">
             <div className="profile-top">
@@ -97,16 +178,14 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
                 </span>
                 <span>{userLocation}</span>
               </div>
-              {userEmail && (
-                <div className="info-row muted">
-                  {userEmail}
-                </div>
-              )}
+              <div className="info-row muted">
+                {userEmail}
+              </div>
             </div>
           </div>
 
           <div className="menu">
-            <button className="menu-item active" onClick={() => onNavigate("dashboard")}>
+            <button className="menu-item" onClick={() => onNavigate("dashboard")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -127,7 +206,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
               </span>
               Dashboard
             </button>
-            <button className="menu-item" onClick={() => onNavigate("petitions")}>
+            <button className="menu-item active" onClick={() => onNavigate("petitions")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -194,25 +273,6 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
               </span>
               Reports
             </button>
-            <button className="menu-item">
-              <span className="menu-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  />
-                  <path
-                    d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-              Settings
-            </button>
           </div>
 
           <div className="help-card">
@@ -231,7 +291,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
             Help & Support
           </div>
 
-          <button className="logout-btn" onClick={onLogout}>
+          <button className="logout-btn">
             <span className="menu-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
                 <path
@@ -253,130 +313,136 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
           </button>
         </aside>
 
+        {/* Main Content */}
         <main className="content">
-          <section className="welcome-card">
+          <section className="create-petition-header">
+            <h1>Create a New Petition</h1>
+            <p>Share your voice and make a difference in your community</p>
+          </section>
+
+          {/* Warning Banner */}
+          <div className="warning-banner">
+            <span className="warning-icon">⚠️</span>
             <div>
-              <h2>Welcome back, {displayName}!</h2>
-              <p>
-                See what&apos;s happening in your community and make your voice
-                heard.
-              </p>
+              <strong>Important Information</strong>
+              <p>Please ensure all information is accurate. Petitions are reviewed before publication.</p>
             </div>
-            <button className="btn-secondary" onClick={() => onNavigate("create-petition")}>
-              + Create Petition
-            </button>
-          </section>
+          </div>
 
-          <section className="stats-row">
-            <div className="stat-card">
-              <div className="stat-head">
-                <h4>My Petitions</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M4 7h16v12H4z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path
-                      d="M8 7l2-3h4l2 3"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div className="stat-value">{myPetitionsCount}</div>
-              <p>petitions</p>
+          {/* Create Petition Form */}
+          <form className="create-petition-form" onSubmit={handleSubmit}>
+            {/* Title */}
+            <div className="form-group">
+              <label htmlFor="title">Petition Title</label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                placeholder="Enter a clear, concise title for your petition"
+                value={formData.title}
+                onChange={handleInputChange}
+                required
+              />
             </div>
-            <div className="stat-card">
-              <div className="stat-head">
-                <h4>Successful Petitions</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-                    <path
-                      d="M8 12l2.5 2.5L16 9"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div className="stat-value">0</div>
-              <p>or under review</p>
-            </div>
-            <div className="stat-card">
-              <div className="stat-head">
-                <h4>Polls Created</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M6 10h12v10H6z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path
-                      d="M9 6l3 3 6-6"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div className="stat-value">0</div>
-              <p>polls</p>
-            </div>
-          </section>
 
-          <section className="section-head">
-            <h3>Active Petitions Near You</h3>
-            <div className="location-pill">
-              <span>Showing for:</span>
-              <div className="location-select">
-                <span className="loc-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 21s6-6.2 6-11a6 6 0 10-12 0c0 4.8 6 11 6 11z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-                  </svg>
-                </span>
-                {userLocation}
-                <span className="chevron" aria-hidden="true">
-                  v
-                </span>
-              </div>
+            {/* Category */}
+            <div className="form-group">
+              <label htmlFor="category">Category</label>
+              <select
+                id="category"
+                name="category"
+                value={formData.category}
+                onChange={handleInputChange}
+              >
+                <option>Environment</option>
+                <option>Infrastructure</option>
+                <option>Education</option>
+                <option>Public Safety</option>
+                <option>Transportation</option>
+                <option>Healthcare</option>
+                <option>Housing</option>
+                <option>Other</option>
+              </select>
             </div>
-          </section>
 
-          <section className="chip-row">
-            <button className="chip active">All Categories</button>
-            <button className="chip">Environment</button>
-            <button className="chip">Infrastructure</button>
-            <button className="chip">Education</button>
-            <button className="chip">Public Safety</button>
-            <button className="chip">Transportation</button>
-            <button className="chip">Healthcare</button>
-            <button className="chip">Housing</button>
-          </section>
+            {/* State */}
+            <div className="form-group">
+              <label htmlFor="state">State</label>
+              <select
+                id="state"
+                name="state"
+                value={formData.state}
+                onChange={handleInputChange}
+                required
+              >
+                {indianLocations.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <section className="empty-state">
-            <p>No petitions found with the current filters.</p>
-            <button className="btn-outline">Clear Filters</button>
-          </section>
+            {/* City */}
+            <div className="form-group">
+              <label htmlFor="city">City</label>
+              <input
+                type="text"
+                id="city"
+                name="city"
+                placeholder="Enter your city"
+                value={formData.city}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            {/* Signature Goal */}
+            <div className="form-group">
+              <label htmlFor="signatureGoal">Signature Goal</label>
+              <input
+                type="number"
+                id="signatureGoal"
+                name="signatureGoal"
+                min="1"
+                value={formData.signatureGoal}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            {/* Description */}
+            <div className="form-group">
+              <label htmlFor="description">Description</label>
+              <textarea
+                id="description"
+                name="description"
+                placeholder="Describe your petition in detail. Why is this important? What change do you want to see?"
+                rows="8"
+                value={formData.description}
+                onChange={handleInputChange}
+                required
+              ></textarea>
+            </div>
+
+            {/* Form Actions */}
+            <div className="form-actions">
+              <button type="submit" className="btn-submit">
+                Create Petition
+              </button>
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => onNavigate("petitions")}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </main>
       </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default CreatePetition;
