@@ -1,38 +1,102 @@
 import { useState } from "react";
 import "./civic.css";
 
-const Dashboard = ({ userData, onLogout, onNavigate }) => {
+const Polls = ({ userData, onLogout, onNavigate }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
-  const userLocation = user.location || 'Not Set';
+  const userLocation = user.location || 'Your City';
   const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
-  
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("All Categories");
-  
-  // Calculate user's petition count
-  const savedPetitions = JSON.parse(localStorage.getItem('civix_petitions')) || [];
-  const myPetitionsCount = savedPetitions.filter(pet => pet.createdBy === userEmail).length;
-  
-  // Calculate user's poll count
-  const savedPolls = JSON.parse(localStorage.getItem('civix_polls')) || [];
-  const myPollsCount = savedPolls.filter(poll => poll.createdBy === userEmail).length;
 
-  // Filter petitions for display
-  const filteredPetitions = savedPetitions.filter(petition => {
-    // Show only active petitions
-    if (petition.status !== 'Active') return false;
+  const [activeTab, setActiveTab] = useState("active");
+  const [selectedLocation, setSelectedLocation] = useState("All Locations");
+  const [selectedPoll, setSelectedPoll] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [pollsData, setPollsData] = useState(() => 
+    JSON.parse(localStorage.getItem('civix_polls')) || []
+  );
+
+  // Indian locations
+  const indianLocations = [
+    "All Locations",
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chhattisgarh",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+    "Delhi",
+    "Ladakh",
+    "Jammu & Kashmir",
+  ];
+
+  const handleDeletePoll = (pollId) => {
+    if (window.confirm('Are you sure you want to delete this poll?')) {
+      const updatedPolls = pollsData.filter(p => p.id !== pollId);
+      setPollsData(updatedPolls);
+      localStorage.setItem('civix_polls', JSON.stringify(updatedPolls));
+      setSelectedPoll(null);
+    }
+  };
+
+  const handleVote = (pollId, optionIndex) => {
+    const updatedPolls = pollsData.map(poll => {
+      if (poll.id === pollId) {
+        const updatedOptions = poll.options.map((opt, idx) => {
+          if (idx === optionIndex) {
+            return { ...opt, votes: (opt.votes || 0) + 1 };
+          }
+          return opt;
+        });
+        return { ...poll, options: updatedOptions, votedBy: [...(poll.votedBy || []), userEmail] };
+      }
+      return poll;
+    });
+    setPollsData(updatedPolls);
+    localStorage.setItem('civix_polls', JSON.stringify(updatedPolls));
+  };
+
+  const polls = pollsData;
+
+  const filteredPolls = polls.filter((poll) => {
+    // Filter by tab
+    if (activeTab === "my" && poll.createdBy !== userEmail) return false;
+    if (activeTab === "voted" && (!poll.votedBy || !poll.votedBy.includes(userEmail))) return false;
+    if (activeTab === "closed" && poll.status !== "Closed") return false;
+    if (activeTab === "active" && poll.status === "Closed") return false;
     
-    // Filter by category
-    if (selectedCategory !== "All Categories" && petition.category !== selectedCategory) return false;
+    // Filter by location
+    if (selectedLocation !== "All Locations" && poll.state !== selectedLocation) return false;
     
     return true;
   });
 
   return (
     <div className="dashboard-page">
+      {/* Topbar */}
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">
@@ -58,11 +122,9 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
         </div>
 
         <nav className="topnav">
-          <a className="active" onClick={() => onNavigate("dashboard")}>
-            Home
-          </a>
+          <a onClick={() => onNavigate("dashboard")}>Home</a>
           <a onClick={() => onNavigate("petitions")}>Petitions</a>
-          <a onClick={() => onNavigate("polls")}>Polls</a>
+          <a className="active">Polls</a>
           <a onClick={() => onNavigate("reports")}>Reports</a>
         </nav>
 
@@ -88,9 +150,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
             <div className="profile-trigger" onClick={() => setShowProfileMenu(!showProfileMenu)}>
               <div className="avatar">{userInitial}</div>
               <span className="user-name">{displayName}</span>
-              <span className="chevron" aria-hidden="true">
-                v
-              </span>
+              <span className="chevron" aria-hidden="true">v</span>
             </div>
             
             {showProfileMenu && (
@@ -134,6 +194,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
       </header>
 
       <div className="layout">
+        {/* Sidebar */}
         <aside className="sidebar">
           <div className="profile-card">
             <div className="profile-top">
@@ -166,7 +227,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
           </div>
 
           <div className="menu">
-            <button className="menu-item active" onClick={() => onNavigate("dashboard")}>
+            <button className="menu-item" onClick={() => onNavigate("dashboard")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -191,21 +252,22 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
-                    d="M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7"
+                    d="M4 7h16v12H4z"
                     stroke="currentColor"
                     strokeWidth="1.8"
                   />
                   <path
-                    d="M5 8h8M5 12h8M5 16h6"
+                    d="M8 7l2-3h4l2 3"
                     stroke="currentColor"
                     strokeWidth="1.8"
                     strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 </svg>
               </span>
               Petitions
             </button>
-            <button className="menu-item" onClick={() => onNavigate("polls")}>
+            <button className="menu-item active">
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -266,8 +328,6 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
                     d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z"
                     stroke="currentColor"
                     strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
                   />
                 </svg>
               </span>
@@ -313,196 +373,192 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
           </button>
         </aside>
 
+        {/* Main Content */}
         <main className="content">
-          <section className="welcome-card">
-            <div>
-              <h2>Welcome back, {displayName}!</h2>
-              <p>
-                See what&apos;s happening in your community and make your voice
-                heard.
-              </p>
-            </div>
-            <button className="btn-secondary" onClick={() => onNavigate("create-petition")}>
-              + Create Petition
+          <section className="petition-header">
+            <h1>Polls</h1>
+            <p>Participate in community polls and make your voice heard.</p>
+            <button className="btn-create" onClick={() => onNavigate("create-poll")}>
+              + Create Poll
             </button>
           </section>
 
-          <section className="stats-row">
-            <div className="stat-card">
-              <div className="stat-head">
-                <h4>My Petitions</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M4 7h16v12H4z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path
-                      d="M8 7l2-3h4l2 3"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div className="stat-value">{myPetitionsCount}</div>
-              <p>petitions</p>
-            </div>
-            <div className="stat-card">
-              <div className="stat-head">
-                <h4>Successful Petitions</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-                    <path
-                      d="M8 12l2.5 2.5L16 9"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div className="stat-value">0</div>
-              <p>or under review</p>
-            </div>
-            <div className="stat-card">
-              <div className="stat-head">
-                <h4>Polls Created</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M6 10h12v10H6z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path
-                      d="M9 6l3 3 6-6"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div className="stat-value">{myPollsCount}</div>
-              <p>polls</p>
-            </div>
-          </section>
+          {/* Tabs */}
+          <div className="petition-tabs">
+            <button
+              className={`petition-tab ${activeTab === "active" ? "active" : ""}`}
+              onClick={() => setActiveTab("active")}
+            >
+              Active Polls
+            </button>
+            <button
+              className={`petition-tab ${activeTab === "voted" ? "active" : ""}`}
+              onClick={() => setActiveTab("voted")}
+            >
+              Polls I Voted On
+            </button>
+            <button
+              className={`petition-tab ${activeTab === "my" ? "active" : ""}`}
+              onClick={() => setActiveTab("my")}
+            >
+              My Polls
+            </button>
+            <button
+              className={`petition-tab ${activeTab === "closed" ? "active" : ""}`}
+              onClick={() => setActiveTab("closed")}
+            >
+              Closed Polls
+            </button>
+          </div>
 
-          <section className="section-head">
-            <h3>Active Petitions Near You</h3>
-            <div className="location-pill">
-              <span>Showing for:</span>
-              <div className="location-select">
-                <span className="loc-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 21s6-6.2 6-11a6 6 0 10-12 0c0 4.8 6 11 6 11z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-                  </svg>
-                </span>
-                {userLocation}
-                <span className="chevron" aria-hidden="true">
-                  v
-                </span>
-              </div>
+          {/* Filters */}
+          <div className="petition-filters">
+            <div className="filter-group">
+              <svg className="filter-icon" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 21s6-6.2 6-11a6 6 0 10-12 0c0 4.8 6 11 6 11z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
+                <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+              </svg>
+              <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)}>
+                {indianLocations.map((location) => (
+                  <option key={location}>{location}</option>
+                ))}
+              </select>
             </div>
-          </section>
+          </div>
 
-          <section className="chip-row">
-            <button 
-              className={`chip ${selectedCategory === "All Categories" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("All Categories")}
-            >
-              All Categories
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Environment" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Environment")}
-            >
-              Environment
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Infrastructure" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Infrastructure")}
-            >
-              Infrastructure
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Education" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Education")}
-            >
-              Education
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Public Safety" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Public Safety")}
-            >
-              Public Safety
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Transportation" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Transportation")}
-            >
-              Transportation
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Healthcare" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Healthcare")}
-            >
-              Healthcare
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Housing" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Housing")}
-            >
-              Housing
-            </button>
-          </section>
-
-          {filteredPetitions.length === 0 ? (
-            <section className="empty-state">
-              <p>No petitions found with the current filters.</p>
-              <button className="btn-outline" onClick={() => setSelectedCategory("All Categories")}>Clear Filters</button>
-            </section>
-          ) : (
-            <section className="petitions-grid">
-              {filteredPetitions.map((petition) => (
-                <div key={petition.id} className="petition-card">
+          {/* Polls Grid */}
+          <div className="petitions-grid">
+            {filteredPolls.length === 0 ? (
+              <div className="empty-state">
+                <p>No polls found. Be the first to create one!</p>
+              </div>
+            ) : (
+              filteredPolls.map((poll) => (
+                <div key={poll.id} className="petition-card">
                   <div className="petition-status-bar"></div>
-                  <div className="petition-time">{petition.createdAt}</div>
-                  <h3>{petition.title}</h3>
-                  <p className="petition-desc">{petition.category}</p>
-                  <p className="petition-location">{petition.city}, {petition.state}</p>
+                  <div className="petition-time">{poll.createdAt}</div>
+                  <h3>{poll.question}</h3>
+                  <p className="petition-desc">{poll.state}</p>
                   <div className="petition-footer">
                     <div className="signature-info">
-                      <span>{petition.signatures || 0} of {petition.goal} signatures</span>
-                      <span className="status-badge">{petition.status}</span>
+                      <span>{poll.options?.length || 0} options</span>
+                      <span className="status-badge">{poll.status}</span>
                     </div>
                     <button 
                       className="btn-view-details"
-                      onClick={() => onNavigate("petitions")}
+                      onClick={() => setSelectedPoll(poll)}
                     >
-                      View Details
+                      View & Vote
                     </button>
                   </div>
                 </div>
-              ))}
-            </section>
-          )}
+              ))
+            )}
+          </div>
+
+          {/* Bottom CTA */}
+          <section className="petition-cta">
+            <h2>Have a question for your community?</h2>
+            <button className="btn-create-large" onClick={() => onNavigate("create-poll")}>
+              Create a Poll
+            </button>
+          </section>
         </main>
       </div>
+
+      {/* Poll Details Modal */}
+      {selectedPoll && (
+        <div className="modal-overlay" onClick={() => setSelectedPoll(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button 
+              className="modal-close"
+              onClick={() => setSelectedPoll(null)}
+            >
+              ✕
+            </button>
+
+            <div className="modal-header">
+              <h2>{selectedPoll.question}</h2>
+              <span className="status-badge-modal">{selectedPoll.status}</span>
+            </div>
+
+            <div className="modal-meta">
+              <div className="meta-item-modal">
+                <span className="meta-label">Location</span>
+                <span className="meta-value">{selectedPoll.city}, {selectedPoll.state}</span>
+              </div>
+              <div className="meta-item-modal">
+                <span className="meta-label">Created</span>
+                <span className="meta-value">{selectedPoll.createdAt}</span>
+              </div>
+              <div className="meta-item-modal">
+                <span className="meta-label">Closes On</span>
+                <span className="meta-value">{selectedPoll.closesOn}</span>
+              </div>
+            </div>
+
+            {selectedPoll.description && (
+              <div className="modal-description">
+                <h3>Description</h3>
+                <p>{selectedPoll.description}</p>
+              </div>
+            )}
+
+            <div className="poll-options-container">
+              <h3>Poll Options</h3>
+              {selectedPoll.options?.map((option, index) => {
+                const totalVotes = selectedPoll.options.reduce((sum, opt) => sum + (opt.votes || 0), 0);
+                const percentage = totalVotes > 0 ? ((option.votes || 0) / totalVotes * 100).toFixed(1) : 0;
+                const hasVoted = selectedPoll.votedBy?.includes(userEmail);
+                
+                return (
+                  <div key={index} className="poll-option">
+                    <div className="poll-option-header">
+                      <span className="poll-option-text">{option.text}</span>
+                      <span className="poll-option-percentage">{percentage}%</span>
+                    </div>
+                    <div className="poll-option-bar">
+                      <div 
+                        className="poll-option-fill" 
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                    <div className="poll-option-votes">{option.votes || 0} votes</div>
+                    {!hasVoted && selectedPoll.status !== "Closed" && (
+                      <button 
+                        className="btn-vote"
+                        onClick={() => {
+                          handleVote(selectedPoll.id, index);
+                          setSelectedPoll(null);
+                        }}
+                      >
+                        Vote
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="modal-actions">
+              {selectedPoll.createdBy === userEmail && (
+                <button 
+                  className="btn-delete-modal"
+                  onClick={() => handleDeletePoll(selectedPoll.id)}
+                >
+                  Delete Poll
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Dashboard;
+export default Polls;

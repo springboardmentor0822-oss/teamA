@@ -1,38 +1,140 @@
 import { useState } from "react";
 import "./civic.css";
 
-const Dashboard = ({ userData, onLogout, onNavigate }) => {
+const CreatePoll = ({ userData, onLogout, onNavigate }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
-  const userLocation = user.location || 'Not Set';
+  const userLocation = user.location || 'Your City';
   const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
-  
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("All Categories");
-  
-  // Calculate user's petition count
-  const savedPetitions = JSON.parse(localStorage.getItem('civix_petitions')) || [];
-  const myPetitionsCount = savedPetitions.filter(pet => pet.createdBy === userEmail).length;
-  
-  // Calculate user's poll count
-  const savedPolls = JSON.parse(localStorage.getItem('civix_polls')) || [];
-  const myPollsCount = savedPolls.filter(poll => poll.createdBy === userEmail).length;
 
-  // Filter petitions for display
-  const filteredPetitions = savedPetitions.filter(petition => {
-    // Show only active petitions
-    if (petition.status !== 'Active') return false;
-    
-    // Filter by category
-    if (selectedCategory !== "All Categories" && petition.category !== selectedCategory) return false;
-    
-    return true;
+  const [formData, setFormData] = useState({
+    question: "",
+    description: "",
+    state: "",
+    city: "",
+    closesOn: "",
   });
+
+  const [options, setOptions] = useState([
+    { id: 1, text: "" },
+    { id: 2, text: "" }
+  ]);
+
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const indianStates = [
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chhattisgarh",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+    "Delhi",
+    "Ladakh",
+    "Jammu & Kashmir",
+  ];
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleOptionChange = (id, value) => {
+    setOptions(options.map(opt => opt.id === id ? { ...opt, text: value } : opt));
+  };
+
+  const handleAddOption = () => {
+    if (options.length < 10) {
+      setOptions([...options, { id: Date.now(), text: "" }]);
+    }
+  };
+
+  const handleRemoveOption = (id) => {
+    if (options.length > 2) {
+      setOptions(options.filter(opt => opt.id !== id));
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    // Validation
+    if (!formData.question.trim()) {
+      alert("Please enter a poll question");
+      return;
+    }
+    if (!formData.state) {
+      alert("Please select a state");
+      return;
+    }
+    if (!formData.city.trim()) {
+      alert("Please enter a city");
+      return;
+    }
+    if (!formData.closesOn) {
+      alert("Please select a closing date");
+      return;
+    }
+
+    const filledOptions = options.filter(opt => opt.text.trim() !== "");
+    if (filledOptions.length < 2) {
+      alert("Please provide at least 2 poll options");
+      return;
+    }
+
+    const newPoll = {
+      id: Date.now(),
+      question: formData.question,
+      description: formData.description,
+      state: formData.state,
+      city: formData.city,
+      closesOn: formData.closesOn,
+      options: filledOptions.map(opt => ({ text: opt.text, votes: 0 })),
+      status: "Active",
+      createdAt: "just now",
+      createdBy: userEmail,
+      votedBy: []
+    };
+
+    const savedPolls = JSON.parse(localStorage.getItem('civix_polls')) || [];
+    savedPolls.push(newPoll);
+    localStorage.setItem('civix_polls', JSON.stringify(savedPolls));
+
+    setShowSuccess(true);
+    setTimeout(() => {
+      setShowSuccess(false);
+      onNavigate("polls");
+    }, 2000);
+  };
 
   return (
     <div className="dashboard-page">
+      {/* Topbar */}
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">
@@ -58,11 +160,9 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
         </div>
 
         <nav className="topnav">
-          <a className="active" onClick={() => onNavigate("dashboard")}>
-            Home
-          </a>
+          <a onClick={() => onNavigate("dashboard")}>Home</a>
           <a onClick={() => onNavigate("petitions")}>Petitions</a>
-          <a onClick={() => onNavigate("polls")}>Polls</a>
+          <a className="active">Polls</a>
           <a onClick={() => onNavigate("reports")}>Reports</a>
         </nav>
 
@@ -88,9 +188,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
             <div className="profile-trigger" onClick={() => setShowProfileMenu(!showProfileMenu)}>
               <div className="avatar">{userInitial}</div>
               <span className="user-name">{displayName}</span>
-              <span className="chevron" aria-hidden="true">
-                v
-              </span>
+              <span className="chevron" aria-hidden="true">v</span>
             </div>
             
             {showProfileMenu && (
@@ -134,6 +232,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
       </header>
 
       <div className="layout">
+        {/* Sidebar */}
         <aside className="sidebar">
           <div className="profile-card">
             <div className="profile-top">
@@ -166,7 +265,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
           </div>
 
           <div className="menu">
-            <button className="menu-item active" onClick={() => onNavigate("dashboard")}>
+            <button className="menu-item" onClick={() => onNavigate("dashboard")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -191,21 +290,22 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
-                    d="M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7"
+                    d="M4 7h16v12H4z"
                     stroke="currentColor"
                     strokeWidth="1.8"
                   />
                   <path
-                    d="M5 8h8M5 12h8M5 16h6"
+                    d="M8 7l2-3h4l2 3"
                     stroke="currentColor"
                     strokeWidth="1.8"
                     strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 </svg>
               </span>
               Petitions
             </button>
-            <button className="menu-item" onClick={() => onNavigate("polls")}>
+            <button className="menu-item active">
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -266,8 +366,6 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
                     d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z"
                     stroke="currentColor"
                     strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
                   />
                 </svg>
               </span>
@@ -313,196 +411,181 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
           </button>
         </aside>
 
+        {/* Main Content */}
         <main className="content">
-          <section className="welcome-card">
+          <section className="create-petition-header">
+            <button className="btn-back" onClick={() => onNavigate("polls")}>
+              ← Back to Polls
+            </button>
+            <h1>Create a Poll</h1>
+            <p>Gather opinions from your community on important issues.</p>
+          </section>
+
+          {/* Important Information Banner */}
+          <div className="info-banner">
+            <div className="info-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M12 8v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                <circle cx="12" cy="16" r="1" fill="currentColor" />
+              </svg>
+            </div>
             <div>
-              <h2>Welcome back, {displayName}!</h2>
-              <p>
-                See what&apos;s happening in your community and make your voice
-                heard.
-              </p>
+              <h4>Important Information</h4>
+              <p>Design your poll carefully. Once created, options cannot be modified. Ensure your question is clear and options are comprehensive.</p>
             </div>
-            <button className="btn-secondary" onClick={() => onNavigate("create-petition")}>
-              + Create Petition
-            </button>
-          </section>
+          </div>
 
-          <section className="stats-row">
-            <div className="stat-card">
-              <div className="stat-head">
-                <h4>My Petitions</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M4 7h16v12H4z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path
-                      d="M8 7l2-3h4l2 3"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
+          <form className="create-petition-form" onSubmit={handleSubmit}>
+            <div className="form-section">
+              <h3>Poll Details</h3>
+              
+              <div className="form-group">
+                <label htmlFor="question">Poll Question *</label>
+                <input
+                  type="text"
+                  id="question"
+                  name="question"
+                  value={formData.question}
+                  onChange={handleChange}
+                  placeholder="Enter your poll question"
+                  required
+                />
               </div>
-              <div className="stat-value">{myPetitionsCount}</div>
-              <p>petitions</p>
-            </div>
-            <div className="stat-card">
-              <div className="stat-head">
-                <h4>Successful Petitions</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-                    <path
-                      d="M8 12l2.5 2.5L16 9"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div className="stat-value">0</div>
-              <p>or under review</p>
-            </div>
-            <div className="stat-card">
-              <div className="stat-head">
-                <h4>Polls Created</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M6 10h12v10H6z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path
-                      d="M9 6l3 3 6-6"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div className="stat-value">{myPollsCount}</div>
-              <p>polls</p>
-            </div>
-          </section>
 
-          <section className="section-head">
-            <h3>Active Petitions Near You</h3>
-            <div className="location-pill">
-              <span>Showing for:</span>
-              <div className="location-select">
-                <span className="loc-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 21s6-6.2 6-11a6 6 0 10-12 0c0 4.8 6 11 6 11z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-                  </svg>
-                </span>
-                {userLocation}
-                <span className="chevron" aria-hidden="true">
-                  v
-                </span>
+              <div className="form-group">
+                <label htmlFor="description">Description (optional)</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows="4"
+                  placeholder="Provide additional context for your poll"
+                ></textarea>
               </div>
             </div>
-          </section>
 
-          <section className="chip-row">
-            <button 
-              className={`chip ${selectedCategory === "All Categories" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("All Categories")}
-            >
-              All Categories
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Environment" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Environment")}
-            >
-              Environment
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Infrastructure" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Infrastructure")}
-            >
-              Infrastructure
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Education" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Education")}
-            >
-              Education
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Public Safety" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Public Safety")}
-            >
-              Public Safety
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Transportation" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Transportation")}
-            >
-              Transportation
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Healthcare" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Healthcare")}
-            >
-              Healthcare
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Housing" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Housing")}
-            >
-              Housing
-            </button>
-          </section>
-
-          {filteredPetitions.length === 0 ? (
-            <section className="empty-state">
-              <p>No petitions found with the current filters.</p>
-              <button className="btn-outline" onClick={() => setSelectedCategory("All Categories")}>Clear Filters</button>
-            </section>
-          ) : (
-            <section className="petitions-grid">
-              {filteredPetitions.map((petition) => (
-                <div key={petition.id} className="petition-card">
-                  <div className="petition-status-bar"></div>
-                  <div className="petition-time">{petition.createdAt}</div>
-                  <h3>{petition.title}</h3>
-                  <p className="petition-desc">{petition.category}</p>
-                  <p className="petition-location">{petition.city}, {petition.state}</p>
-                  <div className="petition-footer">
-                    <div className="signature-info">
-                      <span>{petition.signatures || 0} of {petition.goal} signatures</span>
-                      <span className="status-badge">{petition.status}</span>
+            <div className="form-section">
+              <h3>Poll Options</h3>
+              <p className="form-hint">Add 2-10 options for voters to choose from.</p>
+              
+              <div className="poll-options-list">
+                {options.map((option, index) => (
+                  <div key={option.id} className="poll-option-input-group">
+                    <label>Option {index + 1}</label>
+                    <div className="poll-option-input-wrapper">
+                      <input
+                        type="text"
+                        value={option.text}
+                        onChange={(e) => handleOptionChange(option.id, e.target.value)}
+                        placeholder={`Enter option ${index + 1}`}
+                        required={index < 2}
+                      />
+                      {options.length > 2 && (
+                        <button
+                          type="button"
+                          className="btn-remove-option"
+                          onClick={() => handleRemoveOption(option.id)}
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
-                    <button 
-                      className="btn-view-details"
-                      onClick={() => onNavigate("petitions")}
-                    >
-                      View Details
-                    </button>
                   </div>
+                ))}
+              </div>
+
+              {options.length < 10 && (
+                <button type="button" className="btn-add-option" onClick={handleAddOption}>
+                  + Add Option
+                </button>
+              )}
+            </div>
+
+            <div className="form-section">
+              <h3>Location & Timing</h3>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="state">Target State *</label>
+                  <select
+                    id="state"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select State</option>
+                    {indianStates.map((state) => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
                 </div>
-              ))}
-            </section>
-          )}
+
+                <div className="form-group">
+                  <label htmlFor="city">City *</label>
+                  <input
+                    type="text"
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    placeholder="Enter city name"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="closesOn">Closes On *</label>
+                <input
+                  type="date"
+                  id="closesOn"
+                  name="closesOn"
+                  value={formData.closesOn}
+                  onChange={handleChange}
+                  min={new Date().toISOString().split('T')[0]}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button type="button" className="btn-cancel" onClick={() => onNavigate("polls")}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-submit">
+                Create Poll
+              </button>
+            </div>
+          </form>
         </main>
       </div>
+
+      {/* Success Modal */}
+      {showSuccess && (
+        <div className="success-modal-overlay">
+          <div className="success-modal">
+            <div className="success-icon">
+              <svg viewBox="0 0 52 52" fill="none">
+                <circle cx="26" cy="26" r="25" fill="#10b981" />
+                <path
+                  d="M14 27l8 8 16-16"
+                  stroke="white"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <h2>Poll Created Successfully!</h2>
+            <p>Your poll has been published and is now active.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Dashboard;
+export default CreatePoll;

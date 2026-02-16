@@ -3,6 +3,11 @@ import Login from "./login";
 import Dashboard from "./Dashboard";
 import Petitions from "./Petitions";
 import CreatePetition from "./CreatePetition";
+import Polls from "./Polls";
+import CreatePoll from "./CreatePoll";
+import Reports from "./Reports";
+import Settings from "./Settings";
+import HelpSupport from "./HelpSupport";
 import "./civic.css";
 
 function App() {
@@ -21,6 +26,12 @@ function App() {
       } catch (error) {
         console.error('Error restoring user session:', error);
       }
+    }
+
+    // Apply dark mode if enabled
+    const darkMode = localStorage.getItem('civix_darkMode') === 'true';
+    if (darkMode) {
+      document.body.classList.add('dark-mode');
     }
   }, []);
 
@@ -41,6 +52,10 @@ function App() {
     setCurrentPage(page);
   };
 
+  const handleUpdateUser = (updatedData) => {
+    setUserData(updatedData);
+  };
+
   return (
     <div>
       {isLoggedIn ? (
@@ -53,6 +68,21 @@ function App() {
           )}
           {currentPage === "create-petition" && (
             <CreatePetition userData={userData} onNavigate={handleNavigate} />
+          )}
+          {currentPage === "polls" && (
+            <Polls userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
+          )}
+          {currentPage === "create-poll" && (
+            <CreatePoll userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
+          )}
+          {currentPage === "reports" && (
+            <Reports userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
+          )}
+          {currentPage === "settings" && (
+            <Settings userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} onUpdateUser={handleUpdateUser} />
+          )}
+          {currentPage === "help" && (
+            <HelpSupport userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
           )}
         </>
       ) : (

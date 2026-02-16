@@ -1,38 +1,59 @@
 import { useState } from "react";
 import "./civic.css";
 
-const Dashboard = ({ userData, onLogout, onNavigate }) => {
+const Reports = ({ userData, onLogout, onNavigate }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
-  const userLocation = user.location || 'Not Set';
+  const userLocation = user.location || 'Your City';
   const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
-  
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("All Categories");
-  
-  // Calculate user's petition count
-  const savedPetitions = JSON.parse(localStorage.getItem('civix_petitions')) || [];
-  const myPetitionsCount = savedPetitions.filter(pet => pet.createdBy === userEmail).length;
-  
-  // Calculate user's poll count
-  const savedPolls = JSON.parse(localStorage.getItem('civix_polls')) || [];
-  const myPollsCount = savedPolls.filter(poll => poll.createdBy === userEmail).length;
 
-  // Filter petitions for display
-  const filteredPetitions = savedPetitions.filter(petition => {
-    // Show only active petitions
-    if (petition.status !== 'Active') return false;
-    
-    // Filter by category
-    if (selectedCategory !== "All Categories" && petition.category !== selectedCategory) return false;
-    
-    return true;
-  });
+  const [activeTab, setActiveTab] = useState("community");
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // Get dynamic data from localStorage
+  let petitionsData = JSON.parse(localStorage.getItem('civix_petitions')) || [];
+  let pollsData = JSON.parse(localStorage.getItem('civix_polls')) || [];
+
+  // Initialize with sample data if empty (for testing)
+  if (petitionsData.length === 0) {
+    petitionsData = [
+      { id: 1, title: 'Fix Street Lighting', status: 'Active', createdBy: 'user@example.com', signatures: 145 },
+      { id: 2, title: 'Improve Public Parks', status: 'Active', createdBy: userEmail, signatures: 230 },
+      { id: 3, title: 'Traffic Light on Main St', status: 'Under Review', createdBy: 'another@example.com', signatures: 89 },
+      { id: 4, title: 'Community Center Hours', status: 'Closed', createdBy: userEmail, signatures: 345 },
+    ];
+  }
+
+  if (pollsData.length === 0) {
+    pollsData = [
+      { id: 1, title: 'Preferred Time for Event?', status: 'Active', createdBy: 'user@example.com', votes: 245 },
+      { id: 2, title: 'Park Renovation Ideas', status: 'Active', createdBy: userEmail, votes: 178 },
+      { id: 3, title: 'Budget Allocation', status: 'Closed', createdBy: 'official@example.com', votes: 412 },
+    ];
+  }
+
+  // Calculate stats
+  const totalPetitions = petitionsData.length;
+  const totalPolls = pollsData.length;
+  const myPetitions = petitionsData.filter(p => p.createdBy === userEmail).length;
+  const myPolls = pollsData.filter(p => p.createdBy === userEmail).length;
+  const activeEngagement = totalPetitions + totalPolls;
+  const myActiveEngagement = myPetitions + myPolls;
+
+  // Petition breakdown
+  const activePetitions = petitionsData.filter(p => p.status === "Active").length;
+  const underReviewPetitions = petitionsData.filter(p => p.status === "Under Review").length;
+  const closedPetitions = petitionsData.filter(p => p.status === "Closed").length;
+
+  // Poll breakdown
+  const activePolls = pollsData.filter(p => p.status === "Active").length;
+  const closedPolls = pollsData.filter(p => p.status === "Closed").length;
 
   return (
     <div className="dashboard-page">
+      {/* Topbar */}
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">
@@ -58,12 +79,10 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
         </div>
 
         <nav className="topnav">
-          <a className="active" onClick={() => onNavigate("dashboard")}>
-            Home
-          </a>
+          <a onClick={() => onNavigate("dashboard")}>Home</a>
           <a onClick={() => onNavigate("petitions")}>Petitions</a>
           <a onClick={() => onNavigate("polls")}>Polls</a>
-          <a onClick={() => onNavigate("reports")}>Reports</a>
+          <a className="active">Reports</a>
         </nav>
 
         <div className="top-actions">
@@ -88,9 +107,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
             <div className="profile-trigger" onClick={() => setShowProfileMenu(!showProfileMenu)}>
               <div className="avatar">{userInitial}</div>
               <span className="user-name">{displayName}</span>
-              <span className="chevron" aria-hidden="true">
-                v
-              </span>
+              <span className="chevron" aria-hidden="true">v</span>
             </div>
             
             {showProfileMenu && (
@@ -134,6 +151,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
       </header>
 
       <div className="layout">
+        {/* Sidebar */}
         <aside className="sidebar">
           <div className="profile-card">
             <div className="profile-top">
@@ -166,7 +184,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
           </div>
 
           <div className="menu">
-            <button className="menu-item active" onClick={() => onNavigate("dashboard")}>
+            <button className="menu-item" onClick={() => onNavigate("dashboard")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -191,15 +209,16 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
-                    d="M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7"
+                    d="M4 7h16v12H4z"
                     stroke="currentColor"
                     strokeWidth="1.8"
                   />
                   <path
-                    d="M5 8h8M5 12h8M5 16h6"
+                    d="M8 7l2-3h4l2 3"
                     stroke="currentColor"
                     strokeWidth="1.8"
                     strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 </svg>
               </span>
@@ -236,7 +255,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
               </span>
               Officials
             </button>
-            <button className="menu-item" onClick={() => onNavigate("reports")}>
+            <button className="menu-item active">
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -266,8 +285,6 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
                     d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z"
                     stroke="currentColor"
                     strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
                   />
                 </svg>
               </span>
@@ -313,196 +330,210 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
           </button>
         </aside>
 
+        {/* Main Content */}
         <main className="content">
-          <section className="welcome-card">
+          <section className="reports-header">
             <div>
-              <h2>Welcome back, {displayName}!</h2>
-              <p>
-                See what&apos;s happening in your community and make your voice
-                heard.
-              </p>
+              <h1>Reports & Analytics</h1>
+              <p>Track community engagement and activity metrics.</p>
             </div>
-            <button className="btn-secondary" onClick={() => onNavigate("create-petition")}>
-              + Create Petition
+            <button className="btn-export">
+              <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Export Data
             </button>
           </section>
 
-          <section className="stats-row">
+          {/* Stats Cards */}
+          <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-head">
-                <h4>My Petitions</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M4 7h16v12H4z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path
-                      d="M8 7l2-3h4l2 3"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
+              <div className="stat-icon purple">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M4 7h16v12H4z" stroke="currentColor" strokeWidth="1.8"/>
+                  <path d="M8 7l2-3h4l2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </div>
-              <div className="stat-value">{myPetitionsCount}</div>
-              <p>petitions</p>
+              <div className="stat-content">
+                <div className="stat-value">{activeTab === "community" ? totalPetitions : myPetitions}</div>
+                <div className="stat-label">Total Petitions</div>
+              </div>
             </div>
+
             <div className="stat-card">
-              <div className="stat-head">
-                <h4>Successful Petitions</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-                    <path
-                      d="M8 12l2.5 2.5L16 9"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
+              <div className="stat-icon pink">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12h4v7H5v-7zM10 5h4v14h-4V5zM15 9h4v10h-4V9z" stroke="currentColor" strokeWidth="1.8"/>
+                </svg>
               </div>
-              <div className="stat-value">0</div>
-              <p>or under review</p>
+              <div className="stat-content">
+                <div className="stat-value">{activeTab === "community" ? totalPolls : myPolls}</div>
+                <div className="stat-label">Total Polls</div>
+              </div>
             </div>
+
             <div className="stat-card">
-              <div className="stat-head">
-                <h4>Polls Created</h4>
-                <span className="stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M6 10h12v10H6z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path
-                      d="M9 6l3 3 6-6"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
+              <div className="stat-icon cyan">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </div>
-              <div className="stat-value">{myPollsCount}</div>
-              <p>polls</p>
-            </div>
-          </section>
-
-          <section className="section-head">
-            <h3>Active Petitions Near You</h3>
-            <div className="location-pill">
-              <span>Showing for:</span>
-              <div className="location-select">
-                <span className="loc-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 21s6-6.2 6-11a6 6 0 10-12 0c0 4.8 6 11 6 11z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-                  </svg>
-                </span>
-                {userLocation}
-                <span className="chevron" aria-hidden="true">
-                  v
-                </span>
+              <div className="stat-content">
+                <div className="stat-value">{activeTab === "community" ? activeEngagement : myActiveEngagement}</div>
+                <div className="stat-label">Active Engagement</div>
               </div>
             </div>
-          </section>
+          </div>
 
-          <section className="chip-row">
-            <button 
-              className={`chip ${selectedCategory === "All Categories" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("All Categories")}
+          {/* Tabs */}
+          <div className="reports-tabs">
+            <button
+              className={`reports-tab ${activeTab === "community" ? "active" : ""}`}
+              onClick={() => setActiveTab("community")}
             >
-              All Categories
+              Community Overview
             </button>
-            <button 
-              className={`chip ${selectedCategory === "Environment" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Environment")}
+            <button
+              className={`reports-tab ${activeTab === "my" ? "active" : ""}`}
+              onClick={() => setActiveTab("my")}
             >
-              Environment
+              My Activity
             </button>
-            <button 
-              className={`chip ${selectedCategory === "Infrastructure" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Infrastructure")}
-            >
-              Infrastructure
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Education" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Education")}
-            >
-              Education
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Public Safety" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Public Safety")}
-            >
-              Public Safety
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Transportation" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Transportation")}
-            >
-              Transportation
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Healthcare" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Healthcare")}
-            >
-              Healthcare
-            </button>
-            <button 
-              className={`chip ${selectedCategory === "Housing" ? "active" : ""}`}
-              onClick={() => setSelectedCategory("Housing")}
-            >
-              Housing
-            </button>
-          </section>
+          </div>
 
-          {filteredPetitions.length === 0 ? (
-            <section className="empty-state">
-              <p>No petitions found with the current filters.</p>
-              <button className="btn-outline" onClick={() => setSelectedCategory("All Categories")}>Clear Filters</button>
-            </section>
-          ) : (
-            <section className="petitions-grid">
-              {filteredPetitions.map((petition) => (
-                <div key={petition.id} className="petition-card">
-                  <div className="petition-status-bar"></div>
-                  <div className="petition-time">{petition.createdAt}</div>
-                  <h3>{petition.title}</h3>
-                  <p className="petition-desc">{petition.category}</p>
-                  <p className="petition-location">{petition.city}, {petition.state}</p>
-                  <div className="petition-footer">
-                    <div className="signature-info">
-                      <span>{petition.signatures || 0} of {petition.goal} signatures</span>
-                      <span className="status-badge">{petition.status}</span>
-                    </div>
-                    <button 
-                      className="btn-view-details"
-                      onClick={() => onNavigate("petitions")}
-                    >
-                      View Details
-                    </button>
+          {/* Charts Grid */}
+          <div className="charts-grid">
+            {/* Petition Status Breakdown */}
+            <div className="chart-card">
+              <h3>Petition Status Breakdown</h3>
+              <div className="chart-container">
+                {totalPetitions === 0 ? (
+                  <div className="empty-chart">
+                    <p>No petitions available</p>
+                  </div>
+                ) : (
+                  <div className="pie-chart">
+                    <svg viewBox="0 0 200 200" className="pie-svg" width="200" height="200">
+                      {(() => {
+                        const total = activePetitions + underReviewPetitions + closedPetitions;
+                        let currentAngle = 0;
+                        const slices = [];
+                        
+                        const createSlice = (value, color, index) => {
+                          if (value === 0) return null;
+                          const percentage = value / total;
+                          const angle = percentage * 360;
+                          const startAngle = currentAngle;
+                          const endAngle = currentAngle + angle;
+                          
+                          const startRad = (startAngle - 90) * Math.PI / 180;
+                          const endRad = (endAngle - 90) * Math.PI / 180;
+                          
+                          const x1 = 100 + 80 * Math.cos(startRad);
+                          const y1 = 100 + 80 * Math.sin(startRad);
+                          const x2 = 100 + 80 * Math.cos(endRad);
+                          const y2 = 100 + 80 * Math.sin(endRad);
+                          
+                          const largeArc = angle > 180 ? 1 : 0;
+                          
+                          const path = `M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                          
+                          currentAngle = endAngle;
+                          
+                          return <path key={index} d={path} fill={color} stroke="none" strokeWidth="0" />;
+                        };
+                        
+                        slices.push(createSlice(activePetitions, '#10b981', 0));
+                        slices.push(createSlice(underReviewPetitions, '#f59e0b', 1));
+                        slices.push(createSlice(closedPetitions, '#ef4444', 2));
+                        
+                        return slices;
+                      })()}
+                    </svg>
+                  </div>
+                )}
+                <div className="chart-legend">
+                  <div className="legend-item">
+                    <span className="legend-color" style={{ backgroundColor: '#10b981' }}></span>
+                    <span>Active ({activePetitions})</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-color" style={{ backgroundColor: '#f59e0b' }}></span>
+                    <span>Under Review ({underReviewPetitions})</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-color" style={{ backgroundColor: '#ef4444' }}></span>
+                    <span>Closed ({closedPetitions})</span>
                   </div>
                 </div>
-              ))}
-            </section>
-          )}
+              </div>
+            </div>
+
+            {/* Poll Status Breakdown */}
+            <div className="chart-card">
+              <h3>Poll Status Breakdown</h3>
+              <div className="chart-container">
+                {totalPolls === 0 ? (
+                  <div className="empty-chart">
+                    <p>No polls available</p>
+                  </div>
+                ) : (
+                  <div className="pie-chart">
+                    <svg viewBox="0 0 200 200" className="pie-svg" width="200" height="200">
+                      {(() => {
+                        const total = activePolls + closedPolls;
+                        let currentAngle = 0;
+                        const slices = [];
+                        
+                        const createSlice = (value, color, index) => {
+                          if (value === 0) return null;
+                          const percentage = value / total;
+                          const angle = percentage * 360;
+                          const startAngle = currentAngle;
+                          const endAngle = currentAngle + angle;
+                          
+                          const startRad = (startAngle - 90) * Math.PI / 180;
+                          const endRad = (endAngle - 90) * Math.PI / 180;
+                          
+                          const x1 = 100 + 80 * Math.cos(startRad);
+                          const y1 = 100 + 80 * Math.sin(startRad);
+                          const x2 = 100 + 80 * Math.cos(endRad);
+                          const y2 = 100 + 80 * Math.sin(endRad);
+                          
+                          const largeArc = angle > 180 ? 1 : 0;
+                          
+                          const path = `M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                          
+                          currentAngle = endAngle;
+                          
+                          return <path key={index} d={path} fill={color} stroke="none" strokeWidth="0" />;
+                        };
+                        
+                        slices.push(createSlice(activePolls, '#06b6d4', 0));
+                        slices.push(createSlice(closedPolls, '#64748b', 1));
+                        
+                        return slices;
+                      })()}
+                    </svg>
+                  </div>
+                )}
+                <div className="chart-legend">
+                  <div className="legend-item">
+                    <span className="legend-color" style={{ backgroundColor: '#06b6d4' }}></span>
+                    <span>Active ({activePolls})</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-color" style={{ backgroundColor: '#64748b' }}></span>
+                    <span>Closed ({closedPolls})</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default Reports;

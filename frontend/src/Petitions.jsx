@@ -15,6 +15,7 @@ const Petitions = ({ userData, onLogout, onNavigate }) => {
   const [selectedStatus, setSelectedStatus] = useState("All Statuses");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [selectedPetition, setSelectedPetition] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [petitionsData, setPetitionsData] = useState(() => 
     JSON.parse(localStorage.getItem('civix_petitions')) || []
   );
@@ -225,7 +226,7 @@ const Petitions = ({ userData, onLogout, onNavigate }) => {
               </span>
               Petitions
             </button>
-            <button className="menu-item">
+            <button className="menu-item" onClick={() => onNavigate("polls")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -256,7 +257,7 @@ const Petitions = ({ userData, onLogout, onNavigate }) => {
               </span>
               Officials
             </button>
-            <button className="menu-item">
+            <button className="menu-item" onClick={() => onNavigate("reports")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -274,9 +275,26 @@ const Petitions = ({ userData, onLogout, onNavigate }) => {
               </span>
               Reports
             </button>
+            <button className="menu-item" onClick={() => onNavigate("settings")}>
+              <span className="menu-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+                  <path
+                    d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+                </svg>
+              </span>
+              Settings
+            </button>
           </div>
 
-          <div className="help-card">
+          <div className="help-card" onClick={() => onNavigate("help")}>
             <span className="menu-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />

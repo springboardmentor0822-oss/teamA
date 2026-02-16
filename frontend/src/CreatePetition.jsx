@@ -53,6 +53,8 @@ const CreatePetition = ({ userData, onNavigate }) => {
     description: "",
   });
 
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -147,9 +149,50 @@ const CreatePetition = ({ userData, onNavigate }) => {
               />
             </svg>
           </button>
-          <div className="avatar">{userInitial}</div>
-          <span className="user-name">{displayName}</span>
-          <span className="chevron" aria-hidden="true">v</span>
+          <div className="profile-dropdown">
+            <div className="profile-trigger" onClick={() => setShowProfileMenu(!showProfileMenu)}>
+              <div className="avatar">{userInitial}</div>
+              <span className="user-name">{displayName}</span>
+              <span className="chevron" aria-hidden="true">v</span>
+            </div>
+            
+            {showProfileMenu && (
+              <div className="profile-menu">
+                <div className="profile-menu-header">
+                  <div className="avatar lg">{userInitial}</div>
+                  <div>
+                    <div className="menu-user-name">{displayName}</div>
+                    <div className="menu-user-email">{userEmail}</div>
+                    <div className="menu-user-role">{userRole}</div>
+                  </div>
+                </div>
+                <div className="profile-menu-divider"></div>
+                <button className="profile-menu-item" onClick={() => { setShowProfileMenu(false); onNavigate("settings"); }}>
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" stroke="currentColor" strokeWidth="1.8"/>
+                    <path d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z" stroke="currentColor" strokeWidth="1.8"/>
+                  </svg>
+                  Settings
+                </button>
+                <button className="profile-menu-item" onClick={() => { setShowProfileMenu(false); onNavigate("help"); }}>
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
+                    <path d="M9.5 9.5a2.5 2.5 0 014 2c0 1.5-2 1.5-2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                    <circle cx="12" cy="17" r="1" fill="currentColor"/>
+                  </svg>
+                  Help & Support
+                </button>
+                <div className="profile-menu-divider"></div>
+                <button className="profile-menu-item danger" onClick={() => { setShowProfileMenu(false); onNavigate("settings"); }}>
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -224,7 +267,7 @@ const CreatePetition = ({ userData, onNavigate }) => {
               </span>
               Petitions
             </button>
-            <button className="menu-item">
+            <button className="menu-item" onClick={() => onNavigate("polls")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -255,7 +298,7 @@ const CreatePetition = ({ userData, onNavigate }) => {
               </span>
               Officials
             </button>
-            <button className="menu-item">
+            <button className="menu-item" onClick={() => onNavigate("reports")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -273,9 +316,26 @@ const CreatePetition = ({ userData, onNavigate }) => {
               </span>
               Reports
             </button>
+            <button className="menu-item" onClick={() => onNavigate("settings")}>
+              <span className="menu-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+                  <path
+                    d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+                </svg>
+              </span>
+              Settings
+            </button>
           </div>
 
-          <div className="help-card">
+          <div className="help-card" onClick={() => onNavigate("help")}>
             <span className="menu-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />

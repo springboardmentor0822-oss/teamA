@@ -1,11 +1,109 @@
+import { useState } from "react";
 import "./civic.css";
 
 const PetitionDetails = ({ petition, userData, onNavigate }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
+  const userEmail = user.email || '';
 
-  if (!petition) {
+  const [successMessage, setSuccessMessage] = useState('');
+  const [currentPetition, setCurrentPetition] = useState(petition);
+
+  const handleSign = () => {
+    if (!currentPetition) return;
+
+    // Get petitions from localStorage
+    const petitions = JSON.parse(localStorage.getItem('civix_petitions')) || [];
+    const petitionIndex = petitions.findIndex(p => p.id === currentPetition.id);
+    
+    if (petitionIndex === -1) {
+      setSuccessMessage('Petition not found');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      return;
+    }
+
+    const targetPetition = petitions[petitionIndex];
+    
+    // Initialize signatures array if it doesn't exist
+    if (!targetPetition.signatures) {
+      targetPetition.signatures = 0;
+    }
+    if (!targetPetition.signedBy) {
+      targetPetition.signedBy = [];
+    }
+
+    // Check if user already signed
+    if (targetPetition.signedBy.includes(userEmail)) {
+      setSuccessMessage('You have already signed this petition');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      return;
+    }
+
+    // Add signature
+    targetPetition.signedBy.push(userEmail);
+    targetPetition.signatures += 1;
+
+    // Check if goal reached and auto-close
+    if (targetPetition.signatures >= targetPetition.goal) {
+      targetPetition.status = 'Closed';
+      setSuccessMessage('🎉 Petition signed successfully! Goal reached - petition is now closed.');
+    } else {
+      setSuccessMessage('✓ Petition signed successfully!');
+    }
+
+    // Save to localStorage
+    petitions[petitionIndex] = targetPetition;
+    localStorage.setItem('civix_petitions', JSON.stringify(petitions));
+
+    // Update local state
+    setCurrentPetition(targetPetition);
+
+    // Clear message after 4 seconds
+    setTimeout(() => setSuccessMessage(''), 4000);
+  };
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/petition/${currentPetition.id}`;
+    
+    // Try to use modern clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => {
+          setSuccessMessage('✓ Link copied to clipboard!');
+          setTimeout(() => setSuccessMessage(''), 3000);
+        })
+        .catch(() => {
+          // Fallback
+          fallbackCopyToClipboard(url);
+        });
+    } else {
+      fallbackCopyToClipboard(url);
+    }
+  };
+
+  const fallbackCopyToClipboard = (text) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setSuccessMessage('✓ Link copied to clipboard!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setSuccessMessage('Failed to copy link');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    }
+    document.body.removeChild(textArea);
+  };
+
+  // Use currentPetition instead of petition throughout
+  const displayPetition = currentPetition || petition;
+
+  if (!displayPetition) {
     return (
       <div className="dashboard-page">
         <header className="topbar">
@@ -105,24 +203,30 @@ const PetitionDetails = ({ petition, userData, onNavigate }) => {
             ← Back to Petitions
           </button>
 
+          {successMessage && (
+            <div className="success-message-banner">
+              {successMessage}
+            </div>
+          )}
+
           <section className="detail-card">
             <div className="detail-header">
-              <h1>{petition.title}</h1>
-              <span className="status-badge-lg">{petition.status}</span>
+              <h1>{displayPetition.title}</h1>
+              <span className="status-badge-lg">{displayPetition.status}</span>
             </div>
 
             <div className="detail-meta">
               <div className="meta-item">
                 <span className="meta-label">Category</span>
-                <span className="meta-value">{petition.category}</span>
+                <span className="meta-value">{displayPetition.category}</span>
               </div>
               <div className="meta-item">
                 <span className="meta-label">Location</span>
-                <span className="meta-value">{petition.city}, {petition.state}</span>
+                <span className="meta-value">{displayPetition.city}, {displayPetition.state}</span>
               </div>
               <div className="meta-item">
                 <span className="meta-label">Created</span>
-                <span className="meta-value">{petition.createdAt}</span>
+                <span className="meta-value">{displayPetition.createdAt}</span>
               </div>
             </div>
 
@@ -130,20 +234,26 @@ const PetitionDetails = ({ petition, userData, onNavigate }) => {
               <div className="progress-bar">
                 <div 
                   className="progress-fill" 
-                  style={{ width: `${(petition.signatures / petition.goal) * 100}%` }}
+                  style={{ width: `${(displayPetition.signatures / displayPetition.goal) * 100}%` }}
                 ></div>
               </div>
-              <p className="progress-text">{petition.signatures} of {petition.goal} signatures</p>
+              <p className="progress-text">{displayPetition.signatures} of {displayPetition.goal} signatures</p>
             </div>
 
             <div className="detail-description">
               <h3>Description</h3>
-              <p>{petition.description}</p>
+              <p>{displayPetition.description}</p>
             </div>
 
             <div className="detail-actions">
-              <button className="btn-sign-petition">Sign This Petition</button>
-              <button className="btn-share-petition">Share</button>
+              <button 
+                className="btn-sign-petition" 
+                onClick={handleSign}
+                disabled={displayPetition.signedBy && displayPetition.signedBy.includes(userEmail)}
+              >
+                {displayPetition.signedBy && displayPetition.signedBy.includes(userEmail) ? 'Already Signed' : 'Sign This Petition'}
+              </button>
+              <button className="btn-share-petition" onClick={handleShare}>Share</button>
             </div>
           </section>
         </main>
