@@ -6,6 +6,7 @@ import CreatePetition from "./CreatePetition";
 import Polls from "./Polls";
 import CreatePoll from "./CreatePoll";
 import Reports from "./Reports";
+import Officials from "./Officials";
 import Settings from "./Settings";
 import HelpSupport from "./HelpSupport";
 import "./civic.css";
@@ -110,6 +111,9 @@ function App() {
           )}
           {currentPage === "reports" && (
             <Reports userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
+          )}
+          {currentPage === "officials" && (
+            <Officials userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
           )}
           {currentPage === "settings" && (
             <Settings userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} onUpdateUser={handleUpdateUser} />

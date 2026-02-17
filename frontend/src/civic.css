@@ -2377,6 +2377,25 @@ body.dark-mode .status-badge-lg {
   border-color: var(--primary);
 }
 
+.btn-close-modal {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1.5px solid #fcd34d;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: -0.2px;
+}
+
+.btn-close-modal:hover {
+  background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%);
+  color: white;
+  border-color: #f59e0b;
+}
+
 .btn-delete-modal {
   background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
   color: #991b1b;
@@ -3543,6 +3562,109 @@ body.dark-mode .status-badge-lg {
 
 .profile-menu-item.danger:hover {
   background: rgba(220, 38, 38, 0.06);
+}
+
+.officials-section {
+  margin-top: 24px;
+}
+
+.officials-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin: 0 0 16px;
+  letter-spacing: -0.3px;
+}
+
+.officials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.official-card {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.06);
+}
+
+.official-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--text-dark);
+  font-weight: 800;
+}
+
+.official-card p {
+  margin: 0;
+  color: var(--text-light);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.official-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--text-dark);
+  font-size: 13px;
+}
+
+.official-links {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.official-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(168, 85, 247, 0.08);
+  color: var(--primary);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 10px;
+  padding: 8px 12px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.official-links a:hover {
+  background: rgba(168, 85, 247, 0.14);
+}
+
+body.dark-mode .officials-title {
+  color: #ffffff;
+}
+
+body.dark-mode .official-card {
+  background: rgba(30, 30, 46, 0.9);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+body.dark-mode .official-card h3 {
+  color: #ffffff;
+}
+
+body.dark-mode .official-card p,
+body.dark-mode .official-meta {
+  color: #ffffff;
+}
+
+body.dark-mode .official-links a {
+  background: rgba(168, 85, 247, 0.18);
+  color: #ffffff;
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+body.dark-mode .official-links a:hover {
+  background: rgba(168, 85, 247, 0.26);
 }
 
 /* Success Modal for Poll Creation */

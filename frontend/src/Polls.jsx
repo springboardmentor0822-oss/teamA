@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./civic.css";
 
 const Polls = ({ userData, onLogout, onNavigate }) => {
@@ -16,6 +16,38 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
   const [pollsData, setPollsData] = useState(() => 
     JSON.parse(localStorage.getItem('civix_polls')) || []
   );
+
+  const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
+
+  const isPollExpired = (closesOn) => {
+    if (!closesOn) return false;
+    const closeDate = new Date(`${closesOn}T23:59:59`);
+    if (Number.isNaN(closeDate.getTime())) return false;
+    return Date.now() > closeDate.getTime();
+  };
+
+  useEffect(() => {
+    const updatedPolls = pollsData.map((poll) => {
+      const alreadyClosed = normalizeStatus(poll.status) === "closed";
+      if (!alreadyClosed && isPollExpired(poll.closesOn)) {
+        return { ...poll, status: "Closed" };
+      }
+      return poll;
+    });
+
+    const hasChanges = updatedPolls.some((poll, index) => poll.status !== pollsData[index]?.status);
+    if (hasChanges) {
+      setPollsData(updatedPolls);
+      localStorage.setItem('civix_polls', JSON.stringify(updatedPolls));
+
+      if (selectedPoll) {
+        const refreshedSelected = updatedPolls.find((poll) => poll.id === selectedPoll.id);
+        if (refreshedSelected) {
+          setSelectedPoll(refreshedSelected);
+        }
+      }
+    }
+  }, [pollsData, selectedPoll]);
 
   // Indian locations
   const indianLocations = [
@@ -65,6 +97,11 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
   const handleVote = (pollId, optionIndex) => {
     const updatedPolls = pollsData.map(poll => {
       if (poll.id === pollId) {
+        const isClosed = normalizeStatus(poll.status) === "closed" || isPollExpired(poll.closesOn);
+        if (isClosed) {
+          return { ...poll, status: "Closed" };
+        }
+
         const updatedOptions = poll.options.map((opt, idx) => {
           if (idx === optionIndex) {
             return { ...opt, votes: (opt.votes || 0) + 1 };
@@ -79,14 +116,35 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
     localStorage.setItem('civix_polls', JSON.stringify(updatedPolls));
   };
 
+  const handleClosePoll = (pollId) => {
+    const updatedPolls = pollsData.map((poll) => {
+      if (poll.id === pollId) {
+        return { ...poll, status: "Closed" };
+      }
+      return poll;
+    });
+
+    setPollsData(updatedPolls);
+    localStorage.setItem('civix_polls', JSON.stringify(updatedPolls));
+
+    const closedPoll = updatedPolls.find((poll) => poll.id === pollId);
+    if (closedPoll) {
+      setSelectedPoll(closedPoll);
+    }
+  };
+
   const polls = pollsData;
 
   const filteredPolls = polls.filter((poll) => {
+    const effectiveStatus = normalizeStatus(poll.status) === "closed" || isPollExpired(poll.closesOn)
+      ? "closed"
+      : "active";
+
     // Filter by tab
     if (activeTab === "my" && poll.createdBy !== userEmail) return false;
     if (activeTab === "voted" && (!poll.votedBy || !poll.votedBy.includes(userEmail))) return false;
-    if (activeTab === "closed" && poll.status !== "Closed") return false;
-    if (activeTab === "active" && poll.status === "Closed") return false;
+    if (activeTab === "closed" && effectiveStatus !== "closed") return false;
+    if (activeTab === "active" && effectiveStatus === "closed") return false;
     
     // Filter by location
     if (selectedLocation !== "All Locations" && poll.state !== selectedLocation) return false;
@@ -279,7 +337,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
               </span>
               Polls
             </button>
-            <button className="menu-item">
+            <button className="menu-item" onClick={() => onNavigate("officials")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -446,7 +504,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
                   <div className="petition-footer">
                     <div className="signature-info">
                       <span>{poll.options?.length || 0} options</span>
-                      <span className="status-badge">{poll.status}</span>
+                      <span className="status-badge">{normalizeStatus(poll.status) === "closed" || isPollExpired(poll.closesOn) ? "Closed" : "Active"}</span>
                     </div>
                     <button 
                       className="btn-view-details"
@@ -483,7 +541,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
 
             <div className="modal-header">
               <h2>{selectedPoll.question}</h2>
-              <span className="status-badge-modal">{selectedPoll.status}</span>
+              <span className="status-badge-modal">{normalizeStatus(selectedPoll.status) === "closed" || isPollExpired(selectedPoll.closesOn) ? "Closed" : "Active"}</span>
             </div>
 
             <div className="modal-meta">
@@ -528,7 +586,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
                       ></div>
                     </div>
                     <div className="poll-option-votes">{option.votes || 0} votes</div>
-                    {!hasVoted && selectedPoll.status !== "Closed" && (
+                    {!hasVoted && normalizeStatus(selectedPoll.status) !== "closed" && !isPollExpired(selectedPoll.closesOn) && (
                       <button 
                         className="btn-vote"
                         onClick={() => {
@@ -545,6 +603,14 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
             </div>
 
             <div className="modal-actions">
+              {selectedPoll.createdBy === userEmail && normalizeStatus(selectedPoll.status) !== "closed" && !isPollExpired(selectedPoll.closesOn) && (
+                <button
+                  className="btn-close-modal"
+                  onClick={() => handleClosePoll(selectedPoll.id)}
+                >
+                  Close Poll
+                </button>
+              )}
               {selectedPoll.createdBy === userEmail && (
                 <button 
                   className="btn-delete-modal"

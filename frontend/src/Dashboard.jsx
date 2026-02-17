@@ -217,7 +217,7 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
               </span>
               Polls
             </button>
-            <button className="menu-item">
+            <button className="menu-item" onClick={() => onNavigate("officials")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path

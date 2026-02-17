@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./civic.css";
 
 const Reports = ({ userData, onLogout, onNavigate }) => {
@@ -25,27 +25,22 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
     }
   };
 
-  // Get dynamic data from localStorage
-  let petitionsData = parseStoredArray('civix_petitions');
-  let pollsData = parseStoredArray('civix_polls');
+  const [petitionsData, setPetitionsData] = useState(() => parseStoredArray('civix_petitions'));
+  const [pollsData, setPollsData] = useState(() => parseStoredArray('civix_polls'));
 
-  // Initialize with sample data if empty (for testing)
-  if (petitionsData.length === 0) {
-    petitionsData = [
-      { id: 1, title: 'Fix Street Lighting', status: 'Active', createdBy: 'user@example.com', signatures: 145 },
-      { id: 2, title: 'Improve Public Parks', status: 'Active', createdBy: userEmail, signatures: 230 },
-      { id: 3, title: 'Traffic Light on Main St', status: 'Under Review', createdBy: 'another@example.com', signatures: 89 },
-      { id: 4, title: 'Community Center Hours', status: 'Closed', createdBy: userEmail, signatures: 345 },
-    ];
-  }
+  useEffect(() => {
+    const refreshData = () => {
+      setPetitionsData(parseStoredArray('civix_petitions'));
+      setPollsData(parseStoredArray('civix_polls'));
+    };
 
-  if (pollsData.length === 0) {
-    pollsData = [
-      { id: 1, title: 'Preferred Time for Event?', status: 'Active', createdBy: 'user@example.com', votes: 245 },
-      { id: 2, title: 'Park Renovation Ideas', status: 'Active', createdBy: userEmail, votes: 178 },
-      { id: 3, title: 'Budget Allocation', status: 'Closed', createdBy: 'official@example.com', votes: 412 },
-    ];
-  }
+    refreshData();
+    const intervalId = window.setInterval(refreshData, 2000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   // Calculate stats
   const totalPetitions = petitionsData.length;
@@ -56,24 +51,39 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
   const myActiveEngagement = myPetitions + myPolls;
 
   const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
+  const isPollExpired = (closesOn) => {
+    if (!closesOn) return false;
+    const closeDate = new Date(`${closesOn}T23:59:59`);
+    if (Number.isNaN(closeDate.getTime())) return false;
+    return Date.now() > closeDate.getTime();
+  };
+  const getPetitionStatus = (petition) => {
+    const status = normalizeStatus(petition.status);
+    if (status === "closed") return "closed";
+    if (status === "under review" || status === "under_review" || status === "under-review") return "under review";
+
+    const signatures = Number(petition.signatures) || 0;
+    const goal = Number(petition.goal) || 1;
+    if (signatures >= goal) return "closed";
+
+    return "active";
+  };
+  const getPollStatus = (poll) => {
+    const status = normalizeStatus(poll.status);
+    if (status === "closed" || isPollExpired(poll.closesOn)) {
+      return "closed";
+    }
+    return "active";
+  };
 
   // Petition breakdown
-  const activePetitions = petitionsData.filter((petition) => {
-    const status = normalizeStatus(petition.status);
-    return status === "active";
-  }).length;
-  const underReviewPetitions = petitionsData.filter((petition) => {
-    const status = normalizeStatus(petition.status);
-    return status === "under review" || status === "under_review" || status === "under-review";
-  }).length;
-  const closedPetitions = petitionsData.filter((petition) => {
-    const status = normalizeStatus(petition.status);
-    return status === "closed";
-  }).length;
+  const activePetitions = petitionsData.filter((petition) => getPetitionStatus(petition) === "active").length;
+  const underReviewPetitions = petitionsData.filter((petition) => getPetitionStatus(petition) === "under review").length;
+  const closedPetitions = petitionsData.filter((petition) => getPetitionStatus(petition) === "closed").length;
 
   // Poll breakdown
-  const activePolls = pollsData.filter((poll) => normalizeStatus(poll.status) === "active").length;
-  const closedPolls = pollsData.filter((poll) => normalizeStatus(poll.status) === "closed").length;
+  const activePolls = pollsData.filter((poll) => getPollStatus(poll) === "active").length;
+  const closedPolls = pollsData.filter((poll) => getPollStatus(poll) === "closed").length;
 
   return (
     <div className="dashboard-page">
@@ -260,7 +270,7 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
               </span>
               Polls
             </button>
-            <button className="menu-item">
+            <button className="menu-item" onClick={() => onNavigate("officials")}>
               <span className="menu-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
