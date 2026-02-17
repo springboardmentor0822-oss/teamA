@@ -3,7 +3,7 @@ import "./civic.css";
 
 function Login({ onLogin }) {
   const [activeForm, setActiveForm] = useState("login");
-  const [keepSignedIn, setKeepSignedIn] = useState(false);
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -14,10 +14,7 @@ function Login({ onLogin }) {
       location: 'Your City'
     };
     
-    // Save to localStorage if "Keep me signed in" is checked
-    if (keepSignedIn) {
-      localStorage.setItem('civix_user', JSON.stringify(userData));
-    }
+    localStorage.setItem('civix_user', JSON.stringify(userData));
     
     if (onLogin) {
       onLogin(userData);

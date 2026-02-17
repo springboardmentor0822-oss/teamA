@@ -12,9 +12,22 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
   const [activeTab, setActiveTab] = useState("community");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  const parseStoredArray = (key) => {
+    try {
+      const rawValue = localStorage.getItem(key);
+      if (!rawValue) {
+        return [];
+      }
+      const parsed = JSON.parse(rawValue);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
   // Get dynamic data from localStorage
-  let petitionsData = JSON.parse(localStorage.getItem('civix_petitions')) || [];
-  let pollsData = JSON.parse(localStorage.getItem('civix_polls')) || [];
+  let petitionsData = parseStoredArray('civix_petitions');
+  let pollsData = parseStoredArray('civix_polls');
 
   // Initialize with sample data if empty (for testing)
   if (petitionsData.length === 0) {
@@ -42,14 +55,25 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
   const activeEngagement = totalPetitions + totalPolls;
   const myActiveEngagement = myPetitions + myPolls;
 
+  const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
+
   // Petition breakdown
-  const activePetitions = petitionsData.filter(p => p.status === "Active").length;
-  const underReviewPetitions = petitionsData.filter(p => p.status === "Under Review").length;
-  const closedPetitions = petitionsData.filter(p => p.status === "Closed").length;
+  const activePetitions = petitionsData.filter((petition) => {
+    const status = normalizeStatus(petition.status);
+    return status === "active";
+  }).length;
+  const underReviewPetitions = petitionsData.filter((petition) => {
+    const status = normalizeStatus(petition.status);
+    return status === "under review" || status === "under_review" || status === "under-review";
+  }).length;
+  const closedPetitions = petitionsData.filter((petition) => {
+    const status = normalizeStatus(petition.status);
+    return status === "closed";
+  }).length;
 
   // Poll breakdown
-  const activePolls = pollsData.filter(p => p.status === "Active").length;
-  const closedPolls = pollsData.filter(p => p.status === "Closed").length;
+  const activePolls = pollsData.filter((poll) => normalizeStatus(poll.status) === "active").length;
+  const closedPolls = pollsData.filter((poll) => normalizeStatus(poll.status) === "closed").length;
 
   return (
     <div className="dashboard-page">
@@ -407,7 +431,7 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
             <div className="chart-card">
               <h3>Petition Status Breakdown</h3>
               <div className="chart-container">
-                {totalPetitions === 0 ? (
+                {totalPetitions === 0 || (activePetitions + underReviewPetitions + closedPetitions) === 0 ? (
                   <div className="empty-chart">
                     <p>No petitions available</p>
                   </div>
@@ -473,7 +497,7 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
             <div className="chart-card">
               <h3>Poll Status Breakdown</h3>
               <div className="chart-container">
-                {totalPolls === 0 ? (
+                {totalPolls === 0 || (activePolls + closedPolls) === 0 ? (
                   <div className="empty-chart">
                     <p>No polls available</p>
                   </div>

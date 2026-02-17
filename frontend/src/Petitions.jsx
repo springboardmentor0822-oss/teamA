@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./civic.css";
 
-const Petitions = ({ userData, onLogout, onNavigate }) => {
+const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetitionLinkHandled }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
@@ -16,9 +16,24 @@ const Petitions = ({ userData, onLogout, onNavigate }) => {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [selectedPetition, setSelectedPetition] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [petitionsData, setPetitionsData] = useState(() => 
     JSON.parse(localStorage.getItem('civix_petitions')) || []
   );
+
+  useEffect(() => {
+    if (!initialPetitionId) {
+      return;
+    }
+
+    const petitionFromLink = petitionsData.find((petition) => Number(petition.id) === Number(initialPetitionId));
+    if (petitionFromLink) {
+      setSelectedPetition(petitionFromLink);
+      if (onPetitionLinkHandled) {
+        onPetitionLinkHandled();
+      }
+    }
+  }, [initialPetitionId, petitionsData, onPetitionLinkHandled]);
 
   // Get petitions from state
   const petitions = petitionsData;
@@ -30,6 +45,88 @@ const Petitions = ({ userData, onLogout, onNavigate }) => {
       localStorage.setItem('civix_petitions', JSON.stringify(updatedPetitions));
       setSelectedPetition(null);
     }
+  };
+
+  const handleSignPetition = () => {
+    if (!selectedPetition) {
+      return;
+    }
+
+    const petitionIndex = petitionsData.findIndex((petition) => petition.id === selectedPetition.id);
+    if (petitionIndex === -1) {
+      setSuccessMessage("Petition not found");
+      setTimeout(() => setSuccessMessage(""), 2500);
+      return;
+    }
+
+    const targetPetition = petitionsData[petitionIndex];
+    const signedBy = Array.isArray(targetPetition.signedBy) ? targetPetition.signedBy : [];
+    const currentSignatures = Number(targetPetition.signatures) || 0;
+    const signatureGoal = Math.max(Number(targetPetition.goal) || 1, 1);
+
+    if (targetPetition.status === "Closed") {
+      setSuccessMessage("This petition is already closed");
+      setTimeout(() => setSuccessMessage(""), 2500);
+      return;
+    }
+
+    if (signedBy.includes(userEmail)) {
+      setSuccessMessage("You have already signed this petition");
+      setTimeout(() => setSuccessMessage(""), 2500);
+      return;
+    }
+
+    const updatedSignatures = currentSignatures + 1;
+    const updatedPetition = {
+      ...targetPetition,
+      signatures: updatedSignatures,
+      signedBy: [...signedBy, userEmail],
+      status: updatedSignatures >= signatureGoal ? "Closed" : targetPetition.status,
+    };
+
+    const updatedPetitions = [...petitionsData];
+    updatedPetitions[petitionIndex] = updatedPetition;
+
+    setPetitionsData(updatedPetitions);
+    localStorage.setItem('civix_petitions', JSON.stringify(updatedPetitions));
+    setSelectedPetition(updatedPetition);
+
+    if (updatedSignatures >= signatureGoal) {
+      setSuccessMessage("Petition signed. Signature goal reached, petition is now closed.");
+    } else {
+      setSuccessMessage("Petition signed successfully");
+    }
+    setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
+  const handleSharePetition = async () => {
+    if (!selectedPetition) {
+      return;
+    }
+
+    const shareUrl = `${window.location.origin}${window.location.pathname}?page=petitions&petitionId=${selectedPetition.id}`;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        setSuccessMessage("Share link copied to clipboard");
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = shareUrl;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        setSuccessMessage("Share link copied to clipboard");
+      }
+    } catch {
+      setSuccessMessage("Unable to copy link");
+    }
+
+    setTimeout(() => setSuccessMessage(""), 2500);
   };
 
   const mockPetitions = [];
@@ -473,6 +570,8 @@ const Petitions = ({ userData, onLogout, onNavigate }) => {
               <span className="status-badge-modal">{selectedPetition.status}</span>
             </div>
 
+            {successMessage && <div className="success-message-banner">{successMessage}</div>}
+
             <div className="modal-meta">
               <div className="meta-item-modal">
                 <span className="meta-label">Category</span>
@@ -492,10 +591,10 @@ const Petitions = ({ userData, onLogout, onNavigate }) => {
               <div className="progress-bar-modal">
                 <div 
                   className="progress-fill-modal" 
-                  style={{ width: `${(selectedPetition.signatures / selectedPetition.goal) * 100}%` }}
+                  style={{ width: `${Math.min(((Number(selectedPetition.signatures) || 0) / Math.max(Number(selectedPetition.goal) || 1, 1)) * 100, 100)}%` }}
                 ></div>
               </div>
-              <p className="progress-text-modal">{selectedPetition.signatures} of {selectedPetition.goal} signatures</p>
+              <p className="progress-text-modal">{Number(selectedPetition.signatures) || 0} of {Math.max(Number(selectedPetition.goal) || 1, 1)} signatures</p>
             </div>
 
             <div className="modal-description">
@@ -504,8 +603,21 @@ const Petitions = ({ userData, onLogout, onNavigate }) => {
             </div>
 
             <div className="modal-actions">
-              <button className="btn-sign-modal">Sign This Petition</button>
-              <button className="btn-share-modal">Share</button>
+              <button
+                className="btn-sign-modal"
+                onClick={handleSignPetition}
+                disabled={
+                  selectedPetition.status === "Closed" ||
+                  (Array.isArray(selectedPetition.signedBy) && selectedPetition.signedBy.includes(userEmail))
+                }
+              >
+                {selectedPetition.status === "Closed"
+                  ? "Petition Closed"
+                  : Array.isArray(selectedPetition.signedBy) && selectedPetition.signedBy.includes(userEmail)
+                    ? "Already Signed"
+                    : "Sign This Petition"}
+              </button>
+              <button className="btn-share-modal" onClick={handleSharePetition}>Share</button>
               {selectedPetition.createdBy === userEmail && (
                 <button 
                   className="btn-delete-modal"

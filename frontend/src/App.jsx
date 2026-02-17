@@ -14,9 +14,25 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState(null);
   const [currentPage, setCurrentPage] = useState("dashboard");
+  const [initialPetitionId, setInitialPetitionId] = useState(null);
 
   // Check localStorage on app mount
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pageParam = params.get("page");
+    const petitionParam = params.get("petitionId");
+
+    if (pageParam) {
+      setCurrentPage(pageParam);
+    }
+
+    if (petitionParam) {
+      const parsedPetitionId = Number(petitionParam);
+      if (!Number.isNaN(parsedPetitionId)) {
+        setInitialPetitionId(parsedPetitionId);
+      }
+    }
+
     const savedUser = localStorage.getItem('civix_user');
     if (savedUser) {
       try {
@@ -50,6 +66,17 @@ function App() {
 
   const handleNavigate = (page) => {
     setCurrentPage(page);
+
+    if (page !== "petitions" && initialPetitionId) {
+      setInitialPetitionId(null);
+      const params = new URLSearchParams(window.location.search);
+      params.delete("petitionId");
+      if (params.get("page") !== page) {
+        params.set("page", page);
+      }
+      const query = params.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    }
   };
 
   const handleUpdateUser = (updatedData) => {
@@ -64,7 +91,13 @@ function App() {
             <Dashboard userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
           )}
           {currentPage === "petitions" && (
-            <Petitions userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
+            <Petitions
+              userData={userData}
+              onLogout={handleLogout}
+              onNavigate={handleNavigate}
+              initialPetitionId={initialPetitionId}
+              onPetitionLinkHandled={() => setInitialPetitionId(null)}
+            />
           )}
           {currentPage === "create-petition" && (
             <CreatePetition userData={userData} onNavigate={handleNavigate} />
