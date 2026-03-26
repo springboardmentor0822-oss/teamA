@@ -1,55 +1,131 @@
+
+import axios from "axios";
 import { useEffect, useState } from "react";
 import "./civic.css";
-
+const getCurrentMonthInput = () => {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${now.getFullYear()}-${month}`;
+};
 const Reports = ({ userData, onLogout, onNavigate }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
+  const userId = user._id || "";
   const userLocation = user.location || 'Your City';
   const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
-
   const [activeTab, setActiveTab] = useState("community");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-  const parseStoredArray = (key) => {
+  const [petitionsData, setPetitionsData] = useState([]);
+  const [pollsData, setPollsData] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthInput());
+  const [monthlyReport, setMonthlyReport] = useState(null);
+  const [reportError, setReportError] = useState("");
+  const parseStoredCollection = (storageKey) => {
     try {
-      const rawValue = localStorage.getItem(key);
-      if (!rawValue) {
-        return [];
-      }
-      const parsed = JSON.parse(rawValue);
-      return Array.isArray(parsed) ? parsed : [];
+      const rawValue = localStorage.getItem(storageKey);
+      if (!rawValue) return [];
+      const parsedValue = JSON.parse(rawValue);
+      return Array.isArray(parsedValue) ? parsedValue : [];
     } catch {
       return [];
     }
   };
-
-  const [petitionsData, setPetitionsData] = useState(() => parseStoredArray('civix_petitions'));
-  const [pollsData, setPollsData] = useState(() => parseStoredArray('civix_polls'));
-
+  const getCreatorTokens = (item) => {
+    const tokens = [];
+    if (item?.creator) {
+      if (typeof item.creator === "string") {
+        tokens.push(item.creator);
+      } else {
+        if (item.creator._id) tokens.push(item.creator._id);
+        if (item.creator.email) tokens.push(item.creator.email);
+      }
+    }
+    if (item?.createdBy) {
+      tokens.push(item.createdBy);
+    }
+    return tokens.filter(Boolean).map((token) => String(token));
+  };
+  const isCreatedByCurrentUser = (item) => {
+    const creatorTokens = getCreatorTokens(item);
+    return creatorTokens.includes(String(userId)) || creatorTokens.includes(String(userEmail));
+  };
   useEffect(() => {
-    const refreshData = () => {
-      setPetitionsData(parseStoredArray('civix_petitions'));
-      setPollsData(parseStoredArray('civix_polls'));
+    const loadData = async () => {
+      try {
+        const [petitionsRes, pollsRes] = await Promise.all([
+          axios.get("http://localhost:5000/api/petitions/all"),
+          axios.get("http://localhost:5000/api/polls/all"),
+        ]);
+        const petitions = Array.isArray(petitionsRes.data) ? petitionsRes.data : [];
+        const pollsFromApi = Array.isArray(pollsRes.data) ? pollsRes.data : [];
+        const fallbackPolls = parseStoredCollection("civix_polls");
+        setPetitionsData(petitions);
+        setPollsData(pollsFromApi.length > 0 ? pollsFromApi : fallbackPolls);
+      } catch (error) {
+        setPetitionsData(parseStoredCollection("civix_petitions"));
+        setPollsData(parseStoredCollection("civix_polls"));
+        console.log(error);
+      }
     };
-
-    refreshData();
-    const intervalId = window.setInterval(refreshData, 2000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
+    loadData();
   }, []);
-
+  useEffect(() => {
+    const fetchMonthlyReport = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`http://localhost:5000/api/reports/monthly?month=${selectedMonth}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setMonthlyReport(res.data || null);
+        setReportError("");
+      } catch (error) {
+        setMonthlyReport(null);
+        setReportError(error.response?.data?.message || "Unable to load monthly report");
+      }
+    };
+    fetchMonthlyReport();
+  }, [selectedMonth]);
+  const handleExportReport = () => {
+    if (!monthlyReport) {
+      return;
+    }
+    const csvRows = [
+      ["Month", monthlyReport.month],
+      ["Scope", monthlyReport.scope],
+      ["Petitions Created", monthlyReport.totals?.petitionsCreated || 0],
+      ["Polls Created", monthlyReport.totals?.pollsCreated || 0],
+      ["Total Signatures", monthlyReport.totals?.totalSignatures || 0],
+      ["Total Votes", monthlyReport.totals?.totalVotes || 0],
+      ["Active Engagement", monthlyReport.totals?.activeEngagement || 0],
+      ["Status Active", monthlyReport.petitionStatusBreakdown?.active || 0],
+      ["Status Under Review", monthlyReport.petitionStatusBreakdown?.under_review || 0],
+      ["Status Resolved", monthlyReport.petitionStatusBreakdown?.resolved || 0],
+      ["Status Closed", monthlyReport.petitionStatusBreakdown?.closed || 0],
+    ];
+    const csvContent = csvRows
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `civix-report-${monthlyReport.month}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+  };
   // Calculate stats
   const totalPetitions = petitionsData.length;
   const totalPolls = pollsData.length;
-  const myPetitions = petitionsData.filter(p => p.createdBy === userEmail).length;
-  const myPolls = pollsData.filter(p => p.createdBy === userEmail).length;
+  const myPetitions = petitionsData.filter((petition) => isCreatedByCurrentUser(petition)).length;
+  const myPolls = pollsData.filter((poll) => isCreatedByCurrentUser(poll)).length;
   const activeEngagement = totalPetitions + totalPolls;
   const myActiveEngagement = myPetitions + myPolls;
-
   const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
   const isPollExpired = (closesOn) => {
     if (!closesOn) return false;
@@ -61,11 +137,6 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
     const status = normalizeStatus(petition.status);
     if (status === "closed") return "closed";
     if (status === "under review" || status === "under_review" || status === "under-review") return "under review";
-
-    const signatures = Number(petition.signatures) || 0;
-    const goal = Number(petition.goal) || 1;
-    if (signatures >= goal) return "closed";
-
     return "active";
   };
   const getPollStatus = (poll) => {
@@ -75,16 +146,64 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
     }
     return "active";
   };
-
   // Petition breakdown
   const activePetitions = petitionsData.filter((petition) => getPetitionStatus(petition) === "active").length;
   const underReviewPetitions = petitionsData.filter((petition) => getPetitionStatus(petition) === "under review").length;
   const closedPetitions = petitionsData.filter((petition) => getPetitionStatus(petition) === "closed").length;
-
   // Poll breakdown
   const activePolls = pollsData.filter((poll) => getPollStatus(poll) === "active").length;
   const closedPolls = pollsData.filter((poll) => getPollStatus(poll) === "closed").length;
-
+  const buildPieSlices = (segments) => {
+    const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+    if (total === 0) {
+      return [];
+    }
+    let currentAngle = 0;
+    return segments
+      .filter((segment) => segment.value > 0)
+      .map((segment, index) => {
+        const percentage = segment.value / total;
+        if (percentage >= 1) {
+          return <circle key={index} cx="100" cy="100" r="80" fill={segment.color} />;
+        }
+        const angle = percentage * 360;
+        const startAngle = currentAngle;
+        const endAngle = currentAngle + angle;
+        const startRad = (startAngle - 90) * Math.PI / 180;
+        const endRad = (endAngle - 90) * Math.PI / 180;
+        const x1 = 100 + 80 * Math.cos(startRad);
+        const y1 = 100 + 80 * Math.sin(startRad);
+        const x2 = 100 + 80 * Math.cos(endRad);
+        const y2 = 100 + 80 * Math.sin(endRad);
+        const largeArc = angle > 180 ? 1 : 0;
+        const path = `M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`;
+        currentAngle = endAngle;
+        return <path key={index} d={path} fill={segment.color} />;
+      });
+  };
+  const renderEmptyPieChart = (message) => (
+    <div className="pie-chart empty-pie-chart" role="img" aria-label={message}>
+      <svg viewBox="0 0 200 200" className="pie-svg" width="200" height="200">
+        <circle cx="100" cy="100" r="64" fill="none" stroke="rgba(168, 85, 247, 0.12)" strokeWidth="28" />
+        <circle
+          cx="100"
+          cy="100"
+          r="64"
+          fill="none"
+          stroke="#c084fc"
+          strokeWidth="28"
+          strokeDasharray="201 201"
+          strokeLinecap="round"
+          transform="rotate(-90 100 100)"
+          opacity="0.45"
+        />
+      </svg>
+      <div className="empty-pie-label">
+        <strong>0 polls</strong>
+        <span>{message}</span>
+      </div>
+    </div>
+  );
   return (
     <div className="dashboard-page">
       {/* Topbar */}
@@ -111,14 +230,12 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
           <span className="brand-name">Civix</span>
           <span className="beta-pill">Beta</span>
         </div>
-
         <nav className="topnav">
           <a onClick={() => onNavigate("dashboard")}>Home</a>
           <a onClick={() => onNavigate("petitions")}>Petitions</a>
           <a onClick={() => onNavigate("polls")}>Polls</a>
           <a className="active">Reports</a>
         </nav>
-
         <div className="top-actions">
           <button className="icon-btn" aria-label="Notifications">
             <svg viewBox="0 0 24 24" fill="none">
@@ -143,7 +260,7 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
               <span className="user-name">{displayName}</span>
               <span className="chevron" aria-hidden="true">v</span>
             </div>
-            
+
             {showProfileMenu && (
               <div className="profile-menu">
                 <div className="profile-menu-header">
@@ -157,24 +274,24 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
                 <div className="profile-menu-divider"></div>
                 <button className="profile-menu-item" onClick={() => { setShowProfileMenu(false); onNavigate("settings"); }}>
                   <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" stroke="currentColor" strokeWidth="1.8"/>
-                    <path d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z" stroke="currentColor" strokeWidth="1.8"/>
+                    <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z" stroke="currentColor" strokeWidth="1.8" />
                   </svg>
                   Settings
                 </button>
                 <button className="profile-menu-item" onClick={() => { setShowProfileMenu(false); onNavigate("help"); }}>
                   <svg viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
-                    <path d="M9.5 9.5a2.5 2.5 0 014 2c0 1.5-2 1.5-2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                    <circle cx="12" cy="17" r="1" fill="currentColor"/>
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M9.5 9.5a2.5 2.5 0 014 2c0 1.5-2 1.5-2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <circle cx="12" cy="17" r="1" fill="currentColor" />
                   </svg>
                   Help & Support
                 </button>
                 <div className="profile-menu-divider"></div>
                 <button className="profile-menu-item danger" onClick={() => { setShowProfileMenu(false); onLogout(); }}>
                   <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                    <path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   Logout
                 </button>
@@ -183,7 +300,6 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
           </div>
         </div>
       </header>
-
       <div className="layout">
         {/* Sidebar */}
         <aside className="sidebar">
@@ -216,7 +332,6 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
               )}
             </div>
           </div>
-
           <div className="menu">
             <button className="menu-item" onClick={() => onNavigate("dashboard")}>
               <span className="menu-icon" aria-hidden="true">
@@ -325,7 +440,6 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
               Settings
             </button>
           </div>
-
           <div className="help-card" onClick={() => onNavigate("help")}>
             <span className="menu-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
@@ -341,7 +455,6 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
             </span>
             Help & Support
           </div>
-
           <button className="logout-btn" onClick={onLogout}>
             <span className="menu-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
@@ -363,7 +476,6 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
             Logout
           </button>
         </aside>
-
         {/* Main Content */}
         <main className="content">
           <section className="reports-header">
@@ -371,21 +483,56 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
               <h1>Reports & Analytics</h1>
               <p>Track community engagement and activity metrics.</p>
             </div>
-            <button className="btn-export">
-              <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Export Data
-            </button>
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="filter-btn"
+                aria-label="Select report month"
+              />
+              <button className="btn-export" onClick={handleExportReport} disabled={!monthlyReport}>
+                <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Export Data
+              </button>
+            </div>
           </section>
-
+          {reportError && (
+            <div className="success-message-banner" style={{ background: "#fee2e2", color: "#991b1b" }}>
+              {reportError}
+            </div>
+          )}
+          {monthlyReport && (
+            <div className="stats-grid" style={{ marginBottom: "1rem" }}>
+              <div className="stat-card">
+                <div className="stat-content">
+                  <div className="stat-value">{monthlyReport.month}</div>
+                  <div className="stat-label">Report Month</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-content">
+                  <div className="stat-value">{monthlyReport.scope}</div>
+                  <div className="stat-label">Scope</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-content">
+                  <div className="stat-value">{monthlyReport.totals?.totalVotes || 0}</div>
+                  <div className="stat-label">Monthly Votes</div>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Stats Cards */}
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-icon purple">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M4 7h16v12H4z" stroke="currentColor" strokeWidth="1.8"/>
-                  <path d="M8 7l2-3h4l2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M4 7h16v12H4z" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M8 7l2-3h4l2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -393,11 +540,10 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
                 <div className="stat-label">Total Petitions</div>
               </div>
             </div>
-
             <div className="stat-card">
               <div className="stat-icon pink">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12h4v7H5v-7zM10 5h4v14h-4V5zM15 9h4v10h-4V9z" stroke="currentColor" strokeWidth="1.8"/>
+                  <path d="M5 12h4v7H5v-7zM10 5h4v14h-4V5zM15 9h4v10h-4V9z" stroke="currentColor" strokeWidth="1.8" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -405,11 +551,10 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
                 <div className="stat-label">Total Polls</div>
               </div>
             </div>
-
             <div className="stat-card">
               <div className="stat-icon cyan">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -418,7 +563,6 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
               </div>
             </div>
           </div>
-
           {/* Tabs */}
           <div className="reports-tabs">
             <button
@@ -434,7 +578,6 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
               My Activity
             </button>
           </div>
-
           {/* Charts Grid */}
           <div className="charts-grid">
             {/* Petition Status Breakdown */}
@@ -448,41 +591,11 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
                 ) : (
                   <div className="pie-chart">
                     <svg viewBox="0 0 200 200" className="pie-svg" width="200" height="200">
-                      {(() => {
-                        const total = activePetitions + underReviewPetitions + closedPetitions;
-                        let currentAngle = 0;
-                        const slices = [];
-                        
-                        const createSlice = (value, color, index) => {
-                          if (value === 0) return null;
-                          const percentage = value / total;
-                          const angle = percentage * 360;
-                          const startAngle = currentAngle;
-                          const endAngle = currentAngle + angle;
-                          
-                          const startRad = (startAngle - 90) * Math.PI / 180;
-                          const endRad = (endAngle - 90) * Math.PI / 180;
-                          
-                          const x1 = 100 + 80 * Math.cos(startRad);
-                          const y1 = 100 + 80 * Math.sin(startRad);
-                          const x2 = 100 + 80 * Math.cos(endRad);
-                          const y2 = 100 + 80 * Math.sin(endRad);
-                          
-                          const largeArc = angle > 180 ? 1 : 0;
-                          
-                          const path = `M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`;
-                          
-                          currentAngle = endAngle;
-                          
-                          return <path key={index} d={path} fill={color} stroke="none" strokeWidth="0" />;
-                        };
-                        
-                        slices.push(createSlice(activePetitions, '#10b981', 0));
-                        slices.push(createSlice(underReviewPetitions, '#f59e0b', 1));
-                        slices.push(createSlice(closedPetitions, '#ef4444', 2));
-                        
-                        return slices;
-                      })()}
+                      {buildPieSlices([
+                        { value: activePetitions, color: '#10b981' },
+                        { value: underReviewPetitions, color: '#f59e0b' },
+                        { value: closedPetitions, color: '#ef4444' },
+                      ])}
                     </svg>
                   </div>
                 )}
@@ -502,52 +615,19 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
                 </div>
               </div>
             </div>
-
             {/* Poll Status Breakdown */}
             <div className="chart-card">
               <h3>Poll Status Breakdown</h3>
               <div className="chart-container">
                 {totalPolls === 0 || (activePolls + closedPolls) === 0 ? (
-                  <div className="empty-chart">
-                    <p>No polls available</p>
-                  </div>
+                  renderEmptyPieChart("No polls available")
                 ) : (
                   <div className="pie-chart">
                     <svg viewBox="0 0 200 200" className="pie-svg" width="200" height="200">
-                      {(() => {
-                        const total = activePolls + closedPolls;
-                        let currentAngle = 0;
-                        const slices = [];
-                        
-                        const createSlice = (value, color, index) => {
-                          if (value === 0) return null;
-                          const percentage = value / total;
-                          const angle = percentage * 360;
-                          const startAngle = currentAngle;
-                          const endAngle = currentAngle + angle;
-                          
-                          const startRad = (startAngle - 90) * Math.PI / 180;
-                          const endRad = (endAngle - 90) * Math.PI / 180;
-                          
-                          const x1 = 100 + 80 * Math.cos(startRad);
-                          const y1 = 100 + 80 * Math.sin(startRad);
-                          const x2 = 100 + 80 * Math.cos(endRad);
-                          const y2 = 100 + 80 * Math.sin(endRad);
-                          
-                          const largeArc = angle > 180 ? 1 : 0;
-                          
-                          const path = `M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`;
-                          
-                          currentAngle = endAngle;
-                          
-                          return <path key={index} d={path} fill={color} stroke="none" strokeWidth="0" />;
-                        };
-                        
-                        slices.push(createSlice(activePolls, '#06b6d4', 0));
-                        slices.push(createSlice(closedPolls, '#64748b', 1));
-                        
-                        return slices;
-                      })()}
+                      {buildPieSlices([
+                        { value: activePolls, color: '#06b6d4' },
+                        { value: closedPolls, color: '#64748b' },
+                      ])}
                     </svg>
                   </div>
                 )}
@@ -569,5 +649,4 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
     </div>
   );
 };
-
 export default Reports;

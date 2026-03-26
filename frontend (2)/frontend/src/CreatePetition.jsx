@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useState } from "react";
 import "./civic.css";
 
@@ -63,36 +64,37 @@ const CreatePetition = ({ userData, onNavigate }) => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Create new petition with current user info
-    const newPetition = {
-      id: Date.now(),
-      title: formData.title,
-      description: formData.description,
-      category: formData.category,
-      state: formData.state,
-      city: formData.city,
-      location: formData.state, // For filtering by state
-      signatures: 0,
-      goal: formData.signatureGoal,
-      status: "Active",
-      createdAt: "just now",
-      createdBy: userEmail,
-    };
-    
-    // Get existing petitions from localStorage
-    const existingPetitions = JSON.parse(localStorage.getItem('civix_petitions')) || [];
-    
-    // Add new petition
-    const updatedPetitions = [newPetition, ...existingPetitions];
-    
-    // Save to localStorage
-    localStorage.setItem('civix_petitions', JSON.stringify(updatedPetitions));
-    
-    console.log("Petition created:", newPetition);
-    onNavigate("petitions");
+
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        alert("Please login again to create a petition");
+        return;
+      }
+
+      await axios.post(
+        "http://localhost:5000/api/petitions/create",
+        {
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          location: formData.state,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert("Petition created successfully");
+      onNavigate("petitions");
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to create petition");
+    }
   };
 
   return (

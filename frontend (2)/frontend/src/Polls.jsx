@@ -1,3 +1,25 @@
+import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
+  Tooltip
+} from "chart.js";
+import axios from "axios";
+import { Bar, Doughnut } from "react-chartjs-2";
+
+ChartJS.register(
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend
+);
+
+
 import { useEffect, useState } from "react";
 import "./civic.css";
 
@@ -6,6 +28,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
+  const userId = user._id || '';
   const userLocation = user.location || 'Your City';
   const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
 
@@ -13,9 +36,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
   const [selectedLocation, setSelectedLocation] = useState("All Locations");
   const [selectedPoll, setSelectedPoll] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [pollsData, setPollsData] = useState(() => 
-    JSON.parse(localStorage.getItem('civix_polls')) || []
-  );
+  const [pollsData, setPollsData] = useState([]);
 
   const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
 
@@ -26,28 +47,35 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
     return Date.now() > closeDate.getTime();
   };
 
+  const getCreatorId = (poll) => {
+    if (!poll?.creator) return "";
+    if (typeof poll.creator === "string") return poll.creator;
+    return poll.creator._id || "";
+  };
+
+  const hasVotedPoll = (poll) => {
+    if (!Array.isArray(poll?.votedBy) || !userId) return false;
+    return poll.votedBy.some((id) => String(id) === String(userId));
+  };
+
+  const fetchPolls = async () => {
+    const res = await axios.get("http://localhost:5000/api/polls/all");
+    const list = Array.isArray(res.data) ? res.data : [];
+    setPollsData(list);
+    return list;
+  };
+
   useEffect(() => {
-    const updatedPolls = pollsData.map((poll) => {
-      const alreadyClosed = normalizeStatus(poll.status) === "closed";
-      if (!alreadyClosed && isPollExpired(poll.closesOn)) {
-        return { ...poll, status: "Closed" };
+    const loadPolls = async () => {
+      try {
+        await fetchPolls();
+      } catch (error) {
+        console.log(error);
       }
-      return poll;
-    });
+    };
 
-    const hasChanges = updatedPolls.some((poll, index) => poll.status !== pollsData[index]?.status);
-    if (hasChanges) {
-      setPollsData(updatedPolls);
-      localStorage.setItem('civix_polls', JSON.stringify(updatedPolls));
-
-      if (selectedPoll) {
-        const refreshedSelected = updatedPolls.find((poll) => poll.id === selectedPoll.id);
-        if (refreshedSelected) {
-          setSelectedPoll(refreshedSelected);
-        }
-      }
-    }
-  }, [pollsData, selectedPoll]);
+    loadPolls();
+  }, []);
 
   // Indian locations
   const indianLocations = [
@@ -85,51 +113,65 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
     "Jammu & Kashmir",
   ];
 
-  const handleDeletePoll = (pollId) => {
-    if (window.confirm('Are you sure you want to delete this poll?')) {
-      const updatedPolls = pollsData.filter(p => p.id !== pollId);
-      setPollsData(updatedPolls);
-      localStorage.setItem('civix_polls', JSON.stringify(updatedPolls));
+  const handleDeletePoll = async (pollId) => {
+    if (!window.confirm('Are you sure you want to delete this poll?')) return;
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`http://localhost:5000/api/polls/delete/${pollId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setPollsData((prev) => prev.filter((poll) => poll._id !== pollId));
       setSelectedPoll(null);
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to delete poll");
     }
   };
 
-  const handleVote = (pollId, optionIndex) => {
-    const updatedPolls = pollsData.map(poll => {
-      if (poll.id === pollId) {
-        const isClosed = normalizeStatus(poll.status) === "closed" || isPollExpired(poll.closesOn);
-        if (isClosed) {
-          return { ...poll, status: "Closed" };
+  const handleVote = async (pollId, optionIndex) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.patch(
+        `http://localhost:5000/api/polls/vote/${pollId}`,
+        { optionIndex },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-
-        const updatedOptions = poll.options.map((opt, idx) => {
-          if (idx === optionIndex) {
-            return { ...opt, votes: (opt.votes || 0) + 1 };
-          }
-          return opt;
-        });
-        return { ...poll, options: updatedOptions, votedBy: [...(poll.votedBy || []), userEmail] };
+      );
+      const updatedPoll = res.data?.poll;
+      if (updatedPoll) {
+        setPollsData((prev) => prev.map((poll) => (poll._id === pollId ? updatedPoll : poll)));
+        setSelectedPoll(updatedPoll);
+      } else {
+        await fetchPolls();
       }
-      return poll;
-    });
-    setPollsData(updatedPolls);
-    localStorage.setItem('civix_polls', JSON.stringify(updatedPolls));
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to vote");
+    }
   };
 
-  const handleClosePoll = (pollId) => {
-    const updatedPolls = pollsData.map((poll) => {
-      if (poll.id === pollId) {
-        return { ...poll, status: "Closed" };
+  const handleClosePoll = async (pollId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.patch(
+        `http://localhost:5000/api/polls/close/${pollId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const closedPoll = res.data?.poll;
+      if (closedPoll) {
+        setPollsData((prev) => prev.map((poll) => (poll._id === pollId ? closedPoll : poll)));
+        setSelectedPoll(closedPoll);
       }
-      return poll;
-    });
-
-    setPollsData(updatedPolls);
-    localStorage.setItem('civix_polls', JSON.stringify(updatedPolls));
-
-    const closedPoll = updatedPolls.find((poll) => poll.id === pollId);
-    if (closedPoll) {
-      setSelectedPoll(closedPoll);
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to close poll");
     }
   };
 
@@ -141,14 +183,14 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
       : "active";
 
     // Filter by tab
-    if (activeTab === "my" && poll.createdBy !== userEmail) return false;
-    if (activeTab === "voted" && (!poll.votedBy || !poll.votedBy.includes(userEmail))) return false;
+    if (activeTab === "my" && String(getCreatorId(poll)) !== String(userId)) return false;
+    if (activeTab === "voted" && !hasVotedPoll(poll)) return false;
     if (activeTab === "closed" && effectiveStatus !== "closed") return false;
     if (activeTab === "active" && effectiveStatus === "closed") return false;
-    
+
     // Filter by location
     if (selectedLocation !== "All Locations" && poll.state !== selectedLocation) return false;
-    
+
     return true;
   });
 
@@ -210,7 +252,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
               <span className="user-name">{displayName}</span>
               <span className="chevron" aria-hidden="true">v</span>
             </div>
-            
+
             {showProfileMenu && (
               <div className="profile-menu">
                 <div className="profile-menu-header">
@@ -224,24 +266,24 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
                 <div className="profile-menu-divider"></div>
                 <button className="profile-menu-item" onClick={() => { setShowProfileMenu(false); onNavigate("settings"); }}>
                   <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" stroke="currentColor" strokeWidth="1.8"/>
-                    <path d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z" stroke="currentColor" strokeWidth="1.8"/>
+                    <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z" stroke="currentColor" strokeWidth="1.8" />
                   </svg>
                   Settings
                 </button>
                 <button className="profile-menu-item" onClick={() => { setShowProfileMenu(false); onNavigate("help"); }}>
                   <svg viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
-                    <path d="M9.5 9.5a2.5 2.5 0 014 2c0 1.5-2 1.5-2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                    <circle cx="12" cy="17" r="1" fill="currentColor"/>
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M9.5 9.5a2.5 2.5 0 014 2c0 1.5-2 1.5-2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <circle cx="12" cy="17" r="1" fill="currentColor" />
                   </svg>
                   Help & Support
                 </button>
                 <div className="profile-menu-divider"></div>
                 <button className="profile-menu-item danger" onClick={() => { setShowProfileMenu(false); onLogout(); }}>
                   <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                    <path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   Logout
                 </button>
@@ -496,7 +538,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
               </div>
             ) : (
               filteredPolls.map((poll) => (
-                <div key={poll.id} className="petition-card">
+                <div key={poll._id} className="petition-card">
                   <div className="petition-status-bar"></div>
                   <div className="petition-time">{poll.createdAt}</div>
                   <h3>{poll.question}</h3>
@@ -506,7 +548,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
                       <span>{poll.options?.length || 0} options</span>
                       <span className="status-badge">{normalizeStatus(poll.status) === "closed" || isPollExpired(poll.closesOn) ? "Closed" : "Active"}</span>
                     </div>
-                    <button 
+                    <button
                       className="btn-view-details"
                       onClick={() => setSelectedPoll(poll)}
                     >
@@ -532,7 +574,7 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
       {selectedPoll && (
         <div className="modal-overlay" onClick={() => setSelectedPoll(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button 
+            <button
               className="modal-close"
               onClick={() => setSelectedPoll(null)}
             >
@@ -571,8 +613,8 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
               {selectedPoll.options?.map((option, index) => {
                 const totalVotes = selectedPoll.options.reduce((sum, opt) => sum + (opt.votes || 0), 0);
                 const percentage = totalVotes > 0 ? ((option.votes || 0) / totalVotes * 100).toFixed(1) : 0;
-                const hasVoted = selectedPoll.votedBy?.includes(userEmail);
-                
+                const hasVoted = hasVotedPoll(selectedPoll);
+
                 return (
                   <div key={index} className="poll-option">
                     <div className="poll-option-header">
@@ -580,18 +622,17 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
                       <span className="poll-option-percentage">{percentage}%</span>
                     </div>
                     <div className="poll-option-bar">
-                      <div 
-                        className="poll-option-fill" 
+                      <div
+                        className="poll-option-fill"
                         style={{ width: `${percentage}%` }}
                       ></div>
                     </div>
                     <div className="poll-option-votes">{option.votes || 0} votes</div>
                     {!hasVoted && normalizeStatus(selectedPoll.status) !== "closed" && !isPollExpired(selectedPoll.closesOn) && (
-                      <button 
+                      <button
                         className="btn-vote"
                         onClick={() => {
-                          handleVote(selectedPoll.id, index);
-                          setSelectedPoll(null);
+                          handleVote(selectedPoll._id, index);
                         }}
                       >
                         Vote
@@ -602,19 +643,75 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
               })}
             </div>
 
+
+            {/* Poll Analytics */}
+            <div style={{ marginTop: "30px" }}>
+
+              <h3>Poll Analytics</h3>
+
+              <div style={{ display: "flex", gap: "40px", flexWrap: "wrap", justifyContent: "center" }}>
+
+                {/* Bar Chart */}
+                <div style={{ width: "400px" }}>
+                  <Bar
+                    data={{
+                      labels: selectedPoll.options.map(o => o.text),
+                      datasets: [
+                        {
+                          label: "Votes",
+                          data: selectedPoll.options.map(o => o.votes || 0),
+                          backgroundColor: "#3b82f6"
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      plugins: { legend: { display: false } },
+                      scales: { y: { beginAtZero: true } }
+                    }}
+                  />
+                </div>
+
+                {/* Doughnut Chart */}
+                <div style={{ width: "300px" }}>
+                  <Doughnut
+                    data={{
+                      labels: selectedPoll.options.map(o => o.text),
+                      datasets: [
+                        {
+                          data: selectedPoll.options.map(o => o.votes || 0),
+                          backgroundColor: [
+                            "#22c55e",
+                            "#3b82f6",
+                            "#f59e0b",
+                            "#ef4444",
+                            "#8b5cf6",
+                            "#06b6d4"
+                          ]
+                        }
+                      ]
+                    }}
+                  />
+                </div>
+
+              </div>
+
+            </div>
+
+
             <div className="modal-actions">
-              {selectedPoll.createdBy === userEmail && normalizeStatus(selectedPoll.status) !== "closed" && !isPollExpired(selectedPoll.closesOn) && (
+              {String(getCreatorId(selectedPoll)) === String(userId) && normalizeStatus(selectedPoll.status) !== "closed" && !isPollExpired(selectedPoll.closesOn) && (
                 <button
                   className="btn-close-modal"
-                  onClick={() => handleClosePoll(selectedPoll.id)}
+                  onClick={() => handleClosePoll(selectedPoll._id)}
                 >
                   Close Poll
                 </button>
               )}
-              {selectedPoll.createdBy === userEmail && (
-                <button 
+              {String(getCreatorId(selectedPoll)) === String(userId) && (
+                <button
                   className="btn-delete-modal"
-                  onClick={() => handleDeletePoll(selectedPoll.id)}
+                  onClick={() => handleDeletePoll(selectedPoll._id)}
                 >
                   Delete Poll
                 </button>

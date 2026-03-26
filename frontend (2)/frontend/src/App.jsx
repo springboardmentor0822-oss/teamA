@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useState, useEffect } from "react";
 import Login from "./login";
 import Dashboard from "./Dashboard";
@@ -28,22 +29,28 @@ function App() {
     }
 
     if (petitionParam) {
-      const parsedPetitionId = Number(petitionParam);
-      if (!Number.isNaN(parsedPetitionId)) {
-        setInitialPetitionId(parsedPetitionId);
-      }
+      setInitialPetitionId(petitionParam);
     }
 
-    const savedUser = localStorage.getItem('civix_user');
-    if (savedUser) {
+    const restoreSession = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
       try {
-        const user = JSON.parse(savedUser);
-        setUserData(user);
+        const res = await axios.get("http://localhost:5000/api/auth/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setUserData(res.data);
         setIsLoggedIn(true);
-      } catch (error) {
-        console.error('Error restoring user session:', error);
+      } catch {
+        localStorage.removeItem("token");
       }
-    }
+    };
+
+    restoreSession();
 
     // Apply dark mode if enabled
     const darkMode = localStorage.getItem('civix_darkMode') === 'true';
@@ -61,8 +68,7 @@ function App() {
     setUserData(null);
     setIsLoggedIn(false);
     setCurrentPage("dashboard");
-    // Clear localStorage on logout
-    localStorage.removeItem('civix_user');
+    localStorage.removeItem("token");
   };
 
   const handleNavigate = (page) => {

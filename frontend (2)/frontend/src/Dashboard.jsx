@@ -1,4 +1,5 @@
-import { useState } from "react";
+import axios from "axios";
+import { useEffect, useState } from "react";
 import "./civic.css";
 
 const Dashboard = ({ userData, onLogout, onNavigate }) => {
@@ -6,24 +7,67 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
+  const userId = user._id || "";
   const userLocation = user.location || 'Not Set';
   const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
   
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [petitionsData, setPetitionsData] = useState([]);
+  const [pollsData, setPollsData] = useState([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [petitionsRes, pollsRes] = await Promise.all([
+          axios.get("http://localhost:5000/api/petitions/all"),
+          axios.get("http://localhost:5000/api/polls/all"),
+        ]);
+
+        setPetitionsData(Array.isArray(petitionsRes.data) ? petitionsRes.data : []);
+        setPollsData(Array.isArray(pollsRes.data) ? pollsRes.data : []);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const getCreatorId = (item) => {
+    if (!item?.creator) return "";
+    if (typeof item.creator === "string") return item.creator;
+    return item.creator._id || "";
+  };
+
+  const getDisplayStatus = (status) => {
+    if (status === "under_review") return "Under Review";
+    if (status === "closed") return "Closed";
+    if (status === "resolved") return "Resolved";
+    return "Active";
+  };
+
+  const formatCreatedDate = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString();
+  };
   
   // Calculate user's petition count
-  const savedPetitions = JSON.parse(localStorage.getItem('civix_petitions')) || [];
-  const myPetitionsCount = savedPetitions.filter(pet => pet.createdBy === userEmail).length;
+  const myPetitionsCount = petitionsData.filter(
+    (pet) => String(getCreatorId(pet)) === String(userId)
+  ).length;
   
   // Calculate user's poll count
-  const savedPolls = JSON.parse(localStorage.getItem('civix_polls')) || [];
-  const myPollsCount = savedPolls.filter(poll => poll.createdBy === userEmail).length;
+  const myPollsCount = pollsData.filter(
+    (poll) => String(getCreatorId(poll)) === String(userId)
+  ).length;
 
   // Filter petitions for display
-  const filteredPetitions = savedPetitions.filter(petition => {
+  const filteredPetitions = petitionsData.filter((petition) => {
     // Show only active petitions
-    if (petition.status !== 'Active') return false;
+    if (petition.status !== 'active') return false;
     
     // Filter by category
     if (selectedCategory !== "All Categories" && petition.category !== selectedCategory) return false;
@@ -477,16 +521,16 @@ const Dashboard = ({ userData, onLogout, onNavigate }) => {
           ) : (
             <section className="petitions-grid">
               {filteredPetitions.map((petition) => (
-                <div key={petition.id} className="petition-card">
+                <div key={petition._id} className="petition-card">
                   <div className="petition-status-bar"></div>
-                  <div className="petition-time">{petition.createdAt}</div>
+                  <div className="petition-time">{formatCreatedDate(petition.createdAt)}</div>
                   <h3>{petition.title}</h3>
                   <p className="petition-desc">{petition.category}</p>
-                  <p className="petition-location">{petition.city}, {petition.state}</p>
+                  <p className="petition-location">{petition.location}</p>
                   <div className="petition-footer">
                     <div className="signature-info">
-                      <span>{petition.signatures || 0} of {petition.goal} signatures</span>
-                      <span className="status-badge">{petition.status}</span>
+                      <span>{Number(petition.signatureCount) || 0} signatures</span>
+                      <span className="status-badge">{getDisplayStatus(petition.status)}</span>
                     </div>
                     <button 
                       className="btn-view-details"

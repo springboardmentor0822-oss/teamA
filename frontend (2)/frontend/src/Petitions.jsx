@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useEffect, useState } from "react";
 import "./civic.css";
 
@@ -6,8 +7,10 @@ const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetiti
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
+  const userId = user._id || '';
   const userLocation = user.location || 'Bangalore';
   const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
+  const isOfficialUser = user.role === "official";
 
   const [activeTab, setActiveTab] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("All Locations");
@@ -15,181 +18,325 @@ const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetiti
   const [selectedStatus, setSelectedStatus] = useState("All Statuses");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [selectedPetition, setSelectedPetition] = useState(null);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  const [petitionsData, setPetitionsData] = useState(() => 
-    JSON.parse(localStorage.getItem('civix_petitions')) || []
+  const [petitionsData, setPetitionsData] = useState([]);
+  const [officialComment, setOfficialComment] = useState("");
+  const [officialStatus, setOfficialStatus] = useState("under_review");
+
+  const getDisplayStatus = (status) => {
+    if (status === "under_review") return "Under Review";
+    if (status === "closed") return "Closed";
+    if (status === "resolved") return "Resolved";
+    return "Active";
+  };
+
+  const getCreatorId = (petition) => {
+    if (!petition?.creator) return "";
+    if (typeof petition.creator === "string") return petition.creator;
+    return petition.creator._id || "";
+  };
+
+  const hasSignedPetition = (petition) => {
+    if (!Array.isArray(petition?.signatures) || !userId) return false;
+    return petition.signatures.some((id) => String(id) === String(userId));
+  };
+
+  const formatCreatedDate = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString();
+  };
+
+  const fetchPetitions = async () => {
+    const token = localStorage.getItem("token");
+    const endpoint = isOfficialUser
+      ? "http://localhost:5000/api/petitions/official/locality"
+      : "http://localhost:5000/api/petitions/all";
+
+    const config = isOfficialUser
+      ? {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      : undefined;
+
+    const res = await axios.get(endpoint, config);
+    const list = Array.isArray(res.data) ? res.data : [];
+    setPetitionsData(list);
+    return list;
+  };
+
+
+// ================= FETCH PETITIONS FROM BACKEND =================
+
+useEffect(() => {
+  const loadPetitions = async () => {
+    try {
+      await fetchPetitions();
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  loadPetitions();
+
+}, []);
+
+
+// ================= OPEN PETITION FROM SHARE LINK =================
+
+useEffect(() => {
+
+  if (!initialPetitionId) return;
+
+  const petitionFromLink = petitionsData.find(
+    (petition) => petition._id === initialPetitionId
   );
 
-  useEffect(() => {
-    if (!initialPetitionId) {
-      return;
+  if (petitionFromLink) {
+
+    setSelectedPetition(petitionFromLink);
+
+    if (onPetitionLinkHandled) {
+      onPetitionLinkHandled();
     }
 
-    const petitionFromLink = petitionsData.find((petition) => Number(petition.id) === Number(initialPetitionId));
-    if (petitionFromLink) {
-      setSelectedPetition(petitionFromLink);
-      if (onPetitionLinkHandled) {
-        onPetitionLinkHandled();
+  }
+
+}, [initialPetitionId, petitionsData, onPetitionLinkHandled]);
+
+
+// ================= PETITIONS STATE =================
+
+const petitions = petitionsData;
+
+
+// ================= DELETE PETITION =================
+
+const handleDeletePetition = async (id) => {
+
+  try {
+
+    const token = localStorage.getItem("token");
+
+    await axios.delete(
+      `http://localhost:5000/api/petitions/delete/${id}`,
+      {
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
       }
-    }
-  }, [initialPetitionId, petitionsData, onPetitionLinkHandled]);
+    );
 
-  // Get petitions from state
-  const petitions = petitionsData;
-
-  const handleDeletePetition = (petitionId) => {
-    if (window.confirm('Are you sure you want to delete this petition?')) {
-      const updatedPetitions = petitionsData.filter(p => p.id !== petitionId);
-      setPetitionsData(updatedPetitions);
-      localStorage.setItem('civix_petitions', JSON.stringify(updatedPetitions));
-      setSelectedPetition(null);
-    }
-  };
-
-  const handleSignPetition = () => {
-    if (!selectedPetition) {
-      return;
-    }
-
-    const petitionIndex = petitionsData.findIndex((petition) => petition.id === selectedPetition.id);
-    if (petitionIndex === -1) {
-      setSuccessMessage("Petition not found");
-      setTimeout(() => setSuccessMessage(""), 2500);
-      return;
-    }
-
-    const targetPetition = petitionsData[petitionIndex];
-    const signedBy = Array.isArray(targetPetition.signedBy) ? targetPetition.signedBy : [];
-    const currentSignatures = Number(targetPetition.signatures) || 0;
-    const signatureGoal = Math.max(Number(targetPetition.goal) || 1, 1);
-
-    if (targetPetition.status === "Closed") {
-      setSuccessMessage("This petition is already closed");
-      setTimeout(() => setSuccessMessage(""), 2500);
-      return;
-    }
-
-    if (signedBy.includes(userEmail)) {
-      setSuccessMessage("You have already signed this petition");
-      setTimeout(() => setSuccessMessage(""), 2500);
-      return;
-    }
-
-    const updatedSignatures = currentSignatures + 1;
-    const updatedPetition = {
-      ...targetPetition,
-      signatures: updatedSignatures,
-      signedBy: [...signedBy, userEmail],
-      status: updatedSignatures >= signatureGoal ? "Closed" : targetPetition.status,
-    };
-
-    const updatedPetitions = [...petitionsData];
-    updatedPetitions[petitionIndex] = updatedPetition;
-
-    setPetitionsData(updatedPetitions);
-    localStorage.setItem('civix_petitions', JSON.stringify(updatedPetitions));
-    setSelectedPetition(updatedPetition);
-
-    if (updatedSignatures >= signatureGoal) {
-      setSuccessMessage("Petition signed. Signature goal reached, petition is now closed.");
-    } else {
-      setSuccessMessage("Petition signed successfully");
-    }
-    setTimeout(() => setSuccessMessage(""), 3000);
-  };
-
-  const handleSharePetition = async () => {
-    if (!selectedPetition) {
-      return;
-    }
-
-    const shareUrl = `${window.location.origin}${window.location.pathname}?page=petitions&petitionId=${selectedPetition.id}`;
-
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareUrl);
-        setSuccessMessage("Share link copied to clipboard");
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = shareUrl;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-        setSuccessMessage("Share link copied to clipboard");
-      }
-    } catch {
-      setSuccessMessage("Unable to copy link");
-    }
-
+    setPetitionsData((prev) => prev.filter((petition) => petition._id !== id));
+    setSelectedPetition(null);
+    setSuccessMessage("Petition deleted successfully");
     setTimeout(() => setSuccessMessage(""), 2500);
-  };
 
-  const mockPetitions = [];
-  const indianLocations = [
-    "All Locations",
-    "Andhra Pradesh",
-    "Arunachal Pradesh",
-    "Assam",
-    "Bihar",
-    "Chhattisgarh",
-    "Goa",
-    "Gujarat",
-    "Haryana",
-    "Himachal Pradesh",
-    "Jharkhand",
-    "Karnataka",
-    "Kerala",
-    "Madhya Pradesh",
-    "Maharashtra",
-    "Manipur",
-    "Meghalaya",
-    "Mizoram",
-    "Nagaland",
-    "Odisha",
-    "Punjab",
-    "Rajasthan",
-    "Sikkim",
-    "Tamil Nadu",
-    "Telangana",
-    "Tripura",
-    "Uttar Pradesh",
-    "Uttarakhand",
-    "West Bengal",
-    "Delhi",
-    "Ladakh",
-    "Jammu & Kashmir",
-  ];
+  } catch (error) {
 
-  const categories = [
-    "All Categories",
-    "Environment",
-    "Infrastructure",
-    "Education",
-    "Public Safety",
-    "Transportation",
-    "Healthcare",
-    "Housing",
-    "Other",
-  ];
+    alert(error.response?.data?.message || "Error deleting petition");
 
+  }
+
+};
+
+
+// ================= SIGN PETITION =================
+
+const handleSignPetition = async () => {
+
+  try {
+
+    const token = localStorage.getItem("token");
+
+    const res = await axios.patch(
+      `http://localhost:5000/api/petitions/sign/${selectedPetition._id}`,
+      {},
+      {
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      }
+    );
+
+    setSuccessMessage(res.data?.message || "Petition signed successfully");
+
+    const updatedPetitions = await fetchPetitions();
+    const updatedSelectedPetition = updatedPetitions.find(
+      (petition) => petition._id === selectedPetition._id
+    );
+    setSelectedPetition(updatedSelectedPetition || null);
+    setTimeout(() => setSuccessMessage(""), 2500);
+
+  } catch (error) {
+
+    alert(error.response?.data?.message || "Error signing petition");
+
+  }
+
+};
+
+const handleOfficialResponse = async () => {
+  if (!selectedPetition?._id) return;
+
+  try {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setSuccessMessage("Please login again");
+      setTimeout(() => setSuccessMessage(""), 2500);
+      return;
+    }
+
+    const res = await axios.post(
+      `http://localhost:5000/api/petitions/official/respond/${selectedPetition._id}`,
+      {
+        comment: officialComment,
+        status: officialStatus,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const refreshed = res.data?.petition;
+
+    if (refreshed?._id) {
+      setPetitionsData((prev) => prev.map((item) => (item._id === refreshed._id ? refreshed : item)));
+      setSelectedPetition(refreshed);
+    }
+
+    setOfficialComment("");
+    setOfficialStatus("under_review");
+    setSuccessMessage(res.data?.message || "Official response submitted");
+    setTimeout(() => setSuccessMessage(""), 2500);
+  } catch (error) {
+    alert(error.response?.data?.message || "Unable to submit official response");
+  }
+};
+
+
+// ================= SHARE PETITION =================
+
+const handleSharePetition = async () => {
+
+  if (!selectedPetition) return;
+
+  const shareUrl =
+  `${window.location.origin}${window.location.pathname}?page=petitions&petitionId=${selectedPetition._id}`;
+
+  try {
+
+    if (navigator.clipboard?.writeText) {
+
+      await navigator.clipboard.writeText(shareUrl);
+
+      setSuccessMessage("Share link copied to clipboard");
+
+    } else {
+
+      const textArea = document.createElement("textarea");
+
+      textArea.value = shareUrl;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+
+      document.body.appendChild(textArea);
+
+      textArea.focus();
+      textArea.select();
+
+      document.execCommand("copy");
+
+      document.body.removeChild(textArea);
+
+      setSuccessMessage("Share link copied to clipboard");
+
+    }
+
+  } catch {
+
+    setSuccessMessage("Unable to copy link");
+
+  }
+
+  setTimeout(() => setSuccessMessage(""), 2500);
+
+};
+
+
+// ================= FILTER OPTIONS =================
+
+const indianLocations = [
+  "All Locations",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Delhi",
+  "Ladakh",
+  "Jammu & Kashmir"
+];
+
+const categories = [
+  "All Categories",
+  "Environment",
+  "Infrastructure",
+  "Education",
+  "Public Safety",
+  "Transportation",
+  "Healthcare",
+  "Housing",
+  "Other"
+];
   const filteredPetitions = petitions.filter((pet) => {
     // Filter by tab
-    if (activeTab === "my" && pet.createdBy !== userEmail) return false;
-    if (activeTab === "signed" && (!pet.signedBy || !pet.signedBy.includes(userEmail))) return false;
+    if (activeTab === "my") {
+      const creatorId = getCreatorId(pet);
+      const isMineById = userId && String(creatorId) === String(userId);
+      const isMineByEmail = pet?.creator?.email && pet.creator.email === userEmail;
+      if (!isMineById && !isMineByEmail) return false;
+    }
+
+    if (activeTab === "signed" && !hasSignedPetition(pet)) return false;
     
     // Filter by location
-    if (selectedLocation !== "All Locations" && pet.location !== selectedLocation) return false;
+    if (!isOfficialUser && selectedLocation !== "All Locations" && pet.location !== selectedLocation) return false;
     
     // Filter by category
     if (selectedCategory !== "All Categories" && pet.category !== selectedCategory) return false;
     
     // Filter by status
-    if (selectedStatus !== "All Statuses" && pet.status !== selectedStatus) return false;
+    if (selectedStatus !== "All Statuses" && getDisplayStatus(pet.status) !== selectedStatus) return false;
     
     return true;
   });
@@ -522,16 +669,16 @@ const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetiti
           {/* Petitions Grid */}
           <div className="petitions-grid">
             {filteredPetitions.map((petition) => (
-              <div key={petition.id} className="petition-card">
+              <div key={petition._id} className="petition-card">
                 <div className="petition-status-bar"></div>
-                <div className="petition-time">{petition.createdAt}</div>
+                <div className="petition-time">{formatCreatedDate(petition.createdAt)}</div>
                 <h3>{petition.title}</h3>
                 <p className="petition-desc">{petition.category}</p>
-                <p className="petition-location">{petition.state || petition.location}</p>
+                <p className="petition-location">{petition.location}</p>
                 <div className="petition-footer">
                   <div className="signature-info">
-                    <span>{petition.signatures} of {petition.goal} signatures</span>
-                    <span className="status-badge">{petition.status}</span>
+                    <span>{Number(petition.signatureCount) || 0} signatures</span>
+                    <span className="status-badge">{getDisplayStatus(petition.status)}</span>
                   </div>
                   <button 
                     className="btn-view-details"
@@ -560,14 +707,18 @@ const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetiti
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button 
               className="modal-close"
-              onClick={() => setSelectedPetition(null)}
+              onClick={() => {
+                setSelectedPetition(null);
+                setOfficialComment("");
+                setOfficialStatus("under_review");
+              }}
             >
               ✕
             </button>
 
             <div className="modal-header">
               <h2>{selectedPetition.title}</h2>
-              <span className="status-badge-modal">{selectedPetition.status}</span>
+              <span className="status-badge-modal">{getDisplayStatus(selectedPetition.status)}</span>
             </div>
 
             {successMessage && <div className="success-message-banner">{successMessage}</div>}
@@ -579,11 +730,11 @@ const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetiti
               </div>
               <div className="meta-item-modal">
                 <span className="meta-label">Location</span>
-                <span className="meta-value">{selectedPetition.city}, {selectedPetition.state}</span>
+                <span className="meta-value">{selectedPetition.location}</span>
               </div>
               <div className="meta-item-modal">
                 <span className="meta-label">Created</span>
-                <span className="meta-value">{selectedPetition.createdAt}</span>
+                <span className="meta-value">{formatCreatedDate(selectedPetition.createdAt)}</span>
               </div>
             </div>
 
@@ -591,10 +742,10 @@ const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetiti
               <div className="progress-bar-modal">
                 <div 
                   className="progress-fill-modal" 
-                  style={{ width: `${Math.min(((Number(selectedPetition.signatures) || 0) / Math.max(Number(selectedPetition.goal) || 1, 1)) * 100, 100)}%` }}
+                  style={{ width: `${Math.min(Number(selectedPetition.signatureCount) || 0, 100)}%` }}
                 ></div>
               </div>
-              <p className="progress-text-modal">{Number(selectedPetition.signatures) || 0} of {Math.max(Number(selectedPetition.goal) || 1, 1)} signatures</p>
+              <p className="progress-text-modal">{Number(selectedPetition.signatureCount) || 0} signatures</p>
             </div>
 
             <div className="modal-description">
@@ -607,26 +758,73 @@ const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetiti
                 className="btn-sign-modal"
                 onClick={handleSignPetition}
                 disabled={
-                  selectedPetition.status === "Closed" ||
-                  (Array.isArray(selectedPetition.signedBy) && selectedPetition.signedBy.includes(userEmail))
+                  selectedPetition.status !== "active" ||
+                  hasSignedPetition(selectedPetition)
                 }
               >
-                {selectedPetition.status === "Closed"
+                {selectedPetition.status !== "active"
                   ? "Petition Closed"
-                  : Array.isArray(selectedPetition.signedBy) && selectedPetition.signedBy.includes(userEmail)
+                  : hasSignedPetition(selectedPetition)
                     ? "Already Signed"
                     : "Sign This Petition"}
               </button>
               <button className="btn-share-modal" onClick={handleSharePetition}>Share</button>
-              {selectedPetition.createdBy === userEmail && (
+              {String(getCreatorId(selectedPetition)) === String(userId) && (
                 <button 
                   className="btn-delete-modal"
-                  onClick={() => handleDeletePetition(selectedPetition.id)}
+                  onClick={() => handleDeletePetition(selectedPetition._id)}
                 >
                   Delete
                 </button>
               )}
             </div>
+
+            {Array.isArray(selectedPetition.officialResponses) && selectedPetition.officialResponses.length > 0 && (
+              <div className="modal-description">
+                <h3>Official Responses</h3>
+                {selectedPetition.officialResponses
+                  .slice()
+                  .reverse()
+                  .map((response) => (
+                    <div key={response._id} className="meta-item-modal" style={{ marginBottom: "0.75rem" }}>
+                      <span className="meta-label">
+                        {(response.official && response.official.name) || "Official"} · {getDisplayStatus(response.status)}
+                      </span>
+                      <span className="meta-value">{response.comment}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {isOfficialUser && (
+              <div className="modal-description">
+                <h3>Respond As Official</h3>
+                <div className="petition-filters" style={{ marginTop: "0.75rem" }}>
+                  <div className="filter-group">
+                    <select value={officialStatus} onChange={(e) => setOfficialStatus(e.target.value)}>
+                      <option value="under_review">Under Review</option>
+                      <option value="active">Active</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </div>
+                </div>
+                <textarea
+                  value={officialComment}
+                  onChange={(e) => setOfficialComment(e.target.value)}
+                  rows={4}
+                  placeholder="Add progress update or official comment"
+                  style={{ width: "100%", marginTop: "0.75rem", marginBottom: "0.75rem" }}
+                />
+                <button
+                  className="btn-create"
+                  onClick={handleOfficialResponse}
+                  disabled={!officialComment.trim()}
+                >
+                  Submit Response
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -3124,6 +3124,28 @@ body.dark-mode .status-badge-lg {
   bottom: 4px;
   background: white;
   transition: 0.3s;
+.empty-pie-chart {
+  flex-direction: column;
+  gap: 12px;
+}
+.empty-pie-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: -8px;
+}
+.empty-pie-label strong {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-dark);
+  letter-spacing: -0.3px;
+}
+.empty-pie-label span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -3640,6 +3662,10 @@ body.dark-mode .status-badge-lg {
 }
 
 body.dark-mode .officials-title {
+  color: #ffffff;
+}
+body.dark-mode .empty-pie-label strong,
+body.dark-mode .empty-pie-label span {
   color: #ffffff;
 }
 

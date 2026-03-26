@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useState } from "react";
 import "./civic.css";
 
@@ -6,65 +7,56 @@ const PetitionDetails = ({ petition, userData, onNavigate }) => {
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
+  const userId = user._id || "";
 
   const [successMessage, setSuccessMessage] = useState('');
   const [currentPetition, setCurrentPetition] = useState(petition);
 
-  const handleSign = () => {
+  const handleSign = async () => {
     if (!currentPetition) return;
 
-    // Get petitions from localStorage
-    const petitions = JSON.parse(localStorage.getItem('civix_petitions')) || [];
-    const petitionIndex = petitions.findIndex(p => p.id === currentPetition.id);
-    
-    if (petitionIndex === -1) {
-      setSuccessMessage('Petition not found');
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        setSuccessMessage("Please login again to sign this petition");
+        setTimeout(() => setSuccessMessage(''), 3000);
+        return;
+      }
+
+      const res = await axios.patch(
+        `http://localhost:5000/api/petitions/sign/${currentPetition._id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setSuccessMessage(res.data?.message || "Petition signed successfully");
+
+      setCurrentPetition((prev) => {
+        if (!prev) return prev;
+        const signatures = Array.isArray(prev.signatures) ? prev.signatures : [];
+        const alreadySigned = signatures.some((id) => String(id) === String(userId));
+        if (alreadySigned) return prev;
+        return {
+          ...prev,
+          signatureCount: (Number(prev.signatureCount) || 0) + 1,
+          signatures: userId ? [...signatures, userId] : signatures,
+        };
+      });
+
       setTimeout(() => setSuccessMessage(''), 3000);
-      return;
-    }
-
-    const targetPetition = petitions[petitionIndex];
-    
-    // Initialize signatures array if it doesn't exist
-    if (!targetPetition.signatures) {
-      targetPetition.signatures = 0;
-    }
-    if (!targetPetition.signedBy) {
-      targetPetition.signedBy = [];
-    }
-
-    // Check if user already signed
-    if (targetPetition.signedBy.includes(userEmail)) {
-      setSuccessMessage('You have already signed this petition');
+    } catch (error) {
+      setSuccessMessage(error.response?.data?.message || "Error signing petition");
       setTimeout(() => setSuccessMessage(''), 3000);
-      return;
     }
-
-    // Add signature
-    targetPetition.signedBy.push(userEmail);
-    targetPetition.signatures += 1;
-
-    // Check if goal reached and auto-close
-    if (targetPetition.signatures >= targetPetition.goal) {
-      targetPetition.status = 'Closed';
-      setSuccessMessage('🎉 Petition signed successfully! Goal reached - petition is now closed.');
-    } else {
-      setSuccessMessage('✓ Petition signed successfully!');
-    }
-
-    // Save to localStorage
-    petitions[petitionIndex] = targetPetition;
-    localStorage.setItem('civix_petitions', JSON.stringify(petitions));
-
-    // Update local state
-    setCurrentPetition(targetPetition);
-
-    // Clear message after 4 seconds
-    setTimeout(() => setSuccessMessage(''), 4000);
   };
 
   const handleShare = () => {
-    const url = `${window.location.origin}/petition/${currentPetition.id}`;
+    const url = `${window.location.origin}${window.location.pathname}?page=petitions&petitionId=${currentPetition._id}`;
     
     // Try to use modern clipboard API
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -222,7 +214,7 @@ const PetitionDetails = ({ petition, userData, onNavigate }) => {
               </div>
               <div className="meta-item">
                 <span className="meta-label">Location</span>
-                <span className="meta-value">{displayPetition.city}, {displayPetition.state}</span>
+                <span className="meta-value">{displayPetition.location}</span>
               </div>
               <div className="meta-item">
                 <span className="meta-label">Created</span>
@@ -234,10 +226,10 @@ const PetitionDetails = ({ petition, userData, onNavigate }) => {
               <div className="progress-bar">
                 <div 
                   className="progress-fill" 
-                  style={{ width: `${(displayPetition.signatures / displayPetition.goal) * 100}%` }}
+                  style={{ width: `${Math.min(Number(displayPetition.signatureCount) || 0, 100)}%` }}
                 ></div>
               </div>
-              <p className="progress-text">{displayPetition.signatures} of {displayPetition.goal} signatures</p>
+              <p className="progress-text">{Number(displayPetition.signatureCount) || 0} signatures</p>
             </div>
 
             <div className="detail-description">
@@ -249,9 +241,9 @@ const PetitionDetails = ({ petition, userData, onNavigate }) => {
               <button 
                 className="btn-sign-petition" 
                 onClick={handleSign}
-                disabled={displayPetition.signedBy && displayPetition.signedBy.includes(userEmail)}
+                disabled={Array.isArray(displayPetition.signatures) && displayPetition.signatures.some((id) => String(id) === String(userId))}
               >
-                {displayPetition.signedBy && displayPetition.signedBy.includes(userEmail) ? 'Already Signed' : 'Sign This Petition'}
+                {Array.isArray(displayPetition.signatures) && displayPetition.signatures.some((id) => String(id) === String(userId)) ? 'Already Signed' : 'Sign This Petition'}
               </button>
               <button className="btn-share-petition" onClick={handleShare}>Share</button>
             </div>

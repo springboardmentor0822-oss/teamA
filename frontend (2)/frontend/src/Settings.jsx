@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useState } from "react";
 import "./civic.css";
 
@@ -39,26 +40,37 @@ const Settings = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
     }
   };
 
-  const handleUpdateProfile = (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    
-    const updatedUser = {
-      ...user,
-      name: formData.name,
-      email: formData.email,
-      location: formData.location
-    };
 
-    localStorage.setItem('civix_user', JSON.stringify(updatedUser));
-    
-    if (onUpdateUser) {
-      onUpdateUser(updatedUser);
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await axios.put(
+        "http://localhost:5000/api/auth/me",
+        {
+          name: formData.name,
+          email: formData.email,
+          location: formData.location,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (onUpdateUser) {
+        onUpdateUser(res.data.user);
+      }
+
+      alert("Profile updated successfully!");
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to update profile");
     }
-    
-    alert('Profile updated successfully!');
   };
 
-  const handleChangePassword = (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     
     if (!formData.currentPassword) {
@@ -76,14 +88,32 @@ const Settings = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
       return;
     }
     
-    // In a real app, verify current password with backend
-    alert('Password changed successfully!');
-    setFormData(prev => ({
-      ...prev,
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    }));
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.put(
+        "http://localhost:5000/api/auth/change-password",
+        {
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert("Password changed successfully!");
+      setFormData(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to change password");
+    }
   };
 
   return (

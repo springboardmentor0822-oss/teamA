@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useState } from "react";
 import "./civic.css";
 
@@ -80,7 +81,7 @@ const CreatePoll = ({ userData, onLogout, onNavigate }) => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validation
@@ -107,29 +108,47 @@ const CreatePoll = ({ userData, onLogout, onNavigate }) => {
       return;
     }
 
-    const newPoll = {
-      id: Date.now(),
-      question: formData.question,
-      description: formData.description,
-      state: formData.state,
-      city: formData.city,
-      closesOn: formData.closesOn,
-      options: filledOptions.map(opt => ({ text: opt.text, votes: 0 })),
-      status: "Active",
-      createdAt: "just now",
-      createdBy: userEmail,
-      votedBy: []
-    };
+    try {
+      const token = localStorage.getItem("token");
 
-    const savedPolls = JSON.parse(localStorage.getItem('civix_polls')) || [];
-    savedPolls.push(newPoll);
-    localStorage.setItem('civix_polls', JSON.stringify(savedPolls));
+      if (!token) {
+        alert("Please login again to create a poll");
+        return;
+      }
 
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      onNavigate("polls");
-    }, 2000);
+      await axios.post(
+        "http://localhost:5000/api/polls/create",
+        {
+          question: formData.question,
+          description: formData.description,
+          state: formData.state,
+          city: formData.city,
+          closesOn: formData.closesOn,
+          options: filledOptions.map((opt) => opt.text),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        onNavigate("polls");
+      }, 1500);
+    } catch (error) {
+      const message = error.response?.data?.message || "Failed to create poll";
+      alert(message);
+
+      if (error.response?.status === 401) {
+        localStorage.removeItem("token");
+        if (typeof onLogout === "function") {
+          onLogout();
+        }
+      }
+    }
   };
 
   return (
