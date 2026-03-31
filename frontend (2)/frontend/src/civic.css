@@ -722,7 +722,8 @@ body.dark-mode .status-badge-lg {
   align-items: center;
   gap: 45px;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .login-left::before {
@@ -792,6 +793,14 @@ body.dark-mode .status-badge-lg {
   line-height: 1.6;
   font-weight: 700;
   letter-spacing: 0.5px;
+}
+
+.subtitle-left-description {
+  font-size: 15px;
+  line-height: 1.7;
+  opacity: 0.9;
+  max-width: 420px;
+  text-align: left;
 }
 
 .login-features {

@@ -192,6 +192,12 @@ return (
 Digital Civic Engagement Platform
 </p>
 
+<p className="subtitle-left-description">
+Civix enables citizens to engage in local governance through petitions,
+voting, and tracking officials' responses. Join our platform to make your
+voice heard and drive positive change in your community.
+</p>
+
 </div>
 
 <div className="login-features">
@@ -213,6 +219,96 @@ Digital Civic Engagement Platform
 <div>
 <h3>Create & Sign Petitions</h3>
 <p>Easily create petitions for issues you care about.</p>
+</div>
+
+</div>
+
+<div className="feature-item">
+
+<div className="feature-icon">
+
+<svg viewBox="0 0 24 24" fill="none">
+
+<path d="M5 12h14" stroke="white" strokeWidth="2"/>
+
+<path d="M12 5v14" stroke="white" strokeWidth="2"/>
+
+<circle cx="12" cy="12" r="9" stroke="white" strokeWidth="2"/>
+
+</svg>
+
+</div>
+
+<div>
+<h3>Participate in Public Polls</h3>
+<p>Vote on local issues and see real-time community sentiment.</p>
+</div>
+
+</div>
+
+<div className="feature-item">
+
+<div className="feature-icon">
+
+<svg viewBox="0 0 24 24" fill="none">
+
+<path d="M4 12l5 5L20 7" stroke="white" strokeWidth="2"/>
+
+<circle cx="12" cy="12" r="9" stroke="white" strokeWidth="2"/>
+
+</svg>
+
+</div>
+
+<div>
+<h3>Track Official Responses</h3>
+<p>Follow updates from officials and monitor progress on issues.</p>
+</div>
+
+</div>
+
+<div className="feature-item">
+
+<div className="feature-icon">
+
+<svg viewBox="0 0 24 24" fill="none">
+
+<path d="M12 3l8 4v6c0 5-3.4 7.8-8 8-4.6-.2-8-3-8-8V7l8-4z" stroke="white" strokeWidth="2"/>
+
+<path d="M9 12h6M9 16h4" stroke="white" strokeWidth="2"/>
+
+</svg>
+
+</div>
+
+<div>
+<h3>Report Civic Issues</h3>
+<p>Submit structured reports for local problems with clear details.</p>
+</div>
+
+</div>
+
+<div className="feature-item">
+
+<div className="feature-icon">
+
+<svg viewBox="0 0 24 24" fill="none">
+
+<path d="M4 18h16" stroke="white" strokeWidth="2"/>
+
+<path d="M7 18V10" stroke="white" strokeWidth="2"/>
+
+<path d="M12 18V6" stroke="white" strokeWidth="2"/>
+
+<path d="M17 18v-4" stroke="white" strokeWidth="2"/>
+
+</svg>
+
+</div>
+
+<div>
+<h3>Measure Community Impact</h3>
+<p>Track participation and outcomes to understand civic momentum.</p>
 </div>
 
 </div>

@@ -45,6 +45,16 @@ exports.createPoll = async (req, res) => {
 
 exports.getAllPolls = async (req, res) => {
   try {
+    await Poll.updateMany(
+      {
+        status: "active",
+        closesOn: { $lt: new Date() },
+      },
+      {
+        $set: { status: "closed" },
+      }
+    );
+
     const polls = await Poll.find()
       .populate("creator", "name email")
       .sort({ createdAt: -1 });

@@ -42,7 +42,10 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
 
   const isPollExpired = (closesOn) => {
     if (!closesOn) return false;
-    const closeDate = new Date(`${closesOn}T23:59:59`);
+    const closeText = String(closesOn).trim();
+    const closeDate = closeText.includes("T")
+      ? new Date(closeText)
+      : new Date(`${closeText}T23:59:59`);
     if (Number.isNaN(closeDate.getTime())) return false;
     return Date.now() > closeDate.getTime();
   };
