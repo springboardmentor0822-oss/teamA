@@ -8,6 +8,7 @@ const testRoutes = require("./routes/testRoutes");
 const petitionRoutes = require("./routes/petitionRoutes");
 const pollRoutes = require("./routes/pollRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const officialRoutes = require("./routes/officialRoutes");
 
 
 
@@ -26,6 +27,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/petitions", petitionRoutes);
 app.use("/api/polls", pollRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/officials", officialRoutes);
 
 const PORT = process.env.PORT || 5000;
 
