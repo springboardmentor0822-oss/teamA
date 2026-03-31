@@ -3817,3 +3817,98 @@ body.dark-mode .official-links a:hover {
   transform: none;
   box-shadow: none;
 }
+
+/* Global App Toast + Confirm Dialog */
+.app-toast {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 4000;
+  min-width: 280px;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.app-toast-info {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+}
+
+.app-toast-success {
+  background: linear-gradient(135deg, #10b981 0%, #22c55e 100%);
+}
+
+.app-toast-error {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.app-toast-close {
+  border: 0;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.app-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4100;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.app-confirm-card {
+  width: min(92vw, 430px);
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.25);
+}
+
+.app-confirm-card h3 {
+  margin: 0 0 8px 0;
+  color: #1e1b4b;
+}
+
+.app-confirm-card p {
+  margin: 0;
+  color: #475569;
+}
+
+.app-confirm-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.app-confirm-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-confirm-btn.muted {
+  background: #e2e8f0;
+  color: #1f2937;
+}
+
+.app-confirm-btn.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+}

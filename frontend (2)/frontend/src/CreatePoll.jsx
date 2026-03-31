@@ -2,7 +2,7 @@ import axios from "axios";
 import { useState } from "react";
 import "./civic.css";
 
-const CreatePoll = ({ userData, onLogout, onNavigate }) => {
+const CreatePoll = ({ userData, onLogout, onNavigate, showToast }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
@@ -25,6 +25,13 @@ const CreatePoll = ({ userData, onLogout, onNavigate }) => {
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const notify = (message, type = "info") => {
+    if (!message) return;
+    if (typeof showToast === "function") {
+      showToast(message, type);
+    }
+  };
 
   const indianStates = [
     "Andhra Pradesh",
@@ -86,25 +93,25 @@ const CreatePoll = ({ userData, onLogout, onNavigate }) => {
 
     // Validation
     if (!formData.question.trim()) {
-      alert("Please enter a poll question");
+      notify("Please enter a poll question", "error");
       return;
     }
     if (!formData.state) {
-      alert("Please select a state");
+      notify("Please select a state", "error");
       return;
     }
     if (!formData.city.trim()) {
-      alert("Please enter a city");
+      notify("Please enter a city", "error");
       return;
     }
     if (!formData.closesOn) {
-      alert("Please select a closing date");
+      notify("Please select a closing date", "error");
       return;
     }
 
     const filledOptions = options.filter(opt => opt.text.trim() !== "");
     if (filledOptions.length < 2) {
-      alert("Please provide at least 2 poll options");
+      notify("Please provide at least 2 poll options", "error");
       return;
     }
 
@@ -112,7 +119,7 @@ const CreatePoll = ({ userData, onLogout, onNavigate }) => {
       const token = localStorage.getItem("token");
 
       if (!token) {
-        alert("Please login again to create a poll");
+        notify("Please login again to create a poll", "error");
         return;
       }
 
@@ -140,7 +147,7 @@ const CreatePoll = ({ userData, onLogout, onNavigate }) => {
       }, 1500);
     } catch (error) {
       const message = error.response?.data?.message || "Failed to create poll";
-      alert(message);
+      notify(message, "error");
 
       if (error.response?.status === 401) {
         localStorage.removeItem("token");

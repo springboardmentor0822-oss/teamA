@@ -2,7 +2,7 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import "./civic.css";
 
-const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetitionLinkHandled }) => {
+const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetitionLinkHandled, showToast }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
@@ -22,6 +22,13 @@ const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetiti
   const [petitionsData, setPetitionsData] = useState([]);
   const [officialComment, setOfficialComment] = useState("");
   const [officialStatus, setOfficialStatus] = useState("under_review");
+
+  const notify = (message, type = "info") => {
+    if (!message) return;
+    if (typeof showToast === "function") {
+      showToast(message, type);
+    }
+  };
 
   const getDisplayStatus = (status) => {
     if (status === "under_review") return "Under Review";
@@ -137,7 +144,7 @@ const handleDeletePetition = async (id) => {
 
   } catch (error) {
 
-    alert(error.response?.data?.message || "Error deleting petition");
+    notify(error.response?.data?.message || "Error deleting petition", "error");
 
   }
 
@@ -173,7 +180,7 @@ const handleSignPetition = async () => {
 
   } catch (error) {
 
-    alert(error.response?.data?.message || "Error signing petition");
+    notify(error.response?.data?.message || "Error signing petition", "error");
 
   }
 
@@ -216,7 +223,7 @@ const handleOfficialResponse = async () => {
     setSuccessMessage(res.data?.message || "Official response submitted");
     setTimeout(() => setSuccessMessage(""), 2500);
   } catch (error) {
-    alert(error.response?.data?.message || "Unable to submit official response");
+    notify(error.response?.data?.message || "Unable to submit official response", "error");
   }
 };
 

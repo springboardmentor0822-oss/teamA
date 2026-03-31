@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Login from "./login";
 import Dashboard from "./Dashboard";
 import Petitions from "./Petitions";
@@ -17,6 +17,13 @@ function App() {
   const [userData, setUserData] = useState(null);
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [initialPetitionId, setInitialPetitionId] = useState(null);
+  const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
+  const [confirmDialog, setConfirmDialog] = useState({
+    visible: false,
+    message: "",
+    resolve: null,
+  });
+  const toastTimeoutRef = useRef(null);
 
   // Check localStorage on app mount
   useEffect(() => {
@@ -90,6 +97,46 @@ function App() {
     setUserData(updatedData);
   };
 
+  const showToast = (message, type = "info") => {
+    if (!message) return;
+
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+
+    setToast({ visible: true, message, type });
+
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast((prev) => ({ ...prev, visible: false }));
+    }, 2800);
+  };
+
+  const showConfirm = (message) => {
+    return new Promise((resolve) => {
+      setConfirmDialog({
+        visible: true,
+        message,
+        resolve,
+      });
+    });
+  };
+
+  const handleConfirm = (value) => {
+    if (typeof confirmDialog.resolve === "function") {
+      confirmDialog.resolve(value);
+    }
+
+    setConfirmDialog({ visible: false, message: "", resolve: null });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div>
       {isLoggedIn ? (
@@ -104,16 +151,28 @@ function App() {
               onNavigate={handleNavigate}
               initialPetitionId={initialPetitionId}
               onPetitionLinkHandled={() => setInitialPetitionId(null)}
+              showToast={showToast}
             />
           )}
           {currentPage === "create-petition" && (
-            <CreatePetition userData={userData} onNavigate={handleNavigate} />
+            <CreatePetition userData={userData} onNavigate={handleNavigate} showToast={showToast} />
           )}
           {currentPage === "polls" && (
-            <Polls userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
+            <Polls
+              userData={userData}
+              onLogout={handleLogout}
+              onNavigate={handleNavigate}
+              showToast={showToast}
+              showConfirm={showConfirm}
+            />
           )}
           {currentPage === "create-poll" && (
-            <CreatePoll userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
+            <CreatePoll
+              userData={userData}
+              onLogout={handleLogout}
+              onNavigate={handleNavigate}
+              showToast={showToast}
+            />
           )}
           {currentPage === "reports" && (
             <Reports userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
@@ -122,14 +181,51 @@ function App() {
             <Officials userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
           )}
           {currentPage === "settings" && (
-            <Settings userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} onUpdateUser={handleUpdateUser} />
+            <Settings
+              userData={userData}
+              onLogout={handleLogout}
+              onNavigate={handleNavigate}
+              onUpdateUser={handleUpdateUser}
+              showToast={showToast}
+            />
           )}
           {currentPage === "help" && (
             <HelpSupport userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
           )}
         </>
       ) : (
-        <Login onLogin={handleLogin} />
+        <Login onLogin={handleLogin} showToast={showToast} />
+      )}
+
+      {toast.visible && (
+        <div className={`app-toast app-toast-${toast.type}`} role="status" aria-live="polite">
+          <span>{toast.message}</span>
+          <button
+            type="button"
+            className="app-toast-close"
+            onClick={() => setToast((prev) => ({ ...prev, visible: false }))}
+            aria-label="Close notification"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {confirmDialog.visible && (
+        <div className="app-confirm-overlay">
+          <div className="app-confirm-card">
+            <h3>Confirm Action</h3>
+            <p>{confirmDialog.message}</p>
+            <div className="app-confirm-actions">
+              <button type="button" className="app-confirm-btn muted" onClick={() => handleConfirm(false)}>
+                Cancel
+              </button>
+              <button type="button" className="app-confirm-btn danger" onClick={() => handleConfirm(true)}>
+                Yes, Continue
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

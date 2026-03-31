@@ -23,7 +23,7 @@ ChartJS.register(
 import { useEffect, useState } from "react";
 import "./civic.css";
 
-const Polls = ({ userData, onLogout, onNavigate }) => {
+const Polls = ({ userData, onLogout, onNavigate, showToast, showConfirm }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
@@ -37,6 +37,20 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
   const [selectedPoll, setSelectedPoll] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [pollsData, setPollsData] = useState([]);
+
+  const notify = (message, type = "info") => {
+    if (!message) return;
+    if (typeof showToast === "function") {
+      showToast(message, type);
+    }
+  };
+
+  const requestConfirm = async (message) => {
+    if (typeof showConfirm === "function") {
+      return showConfirm(message);
+    }
+    return true;
+  };
 
   const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
 
@@ -117,7 +131,8 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
   ];
 
   const handleDeletePoll = async (pollId) => {
-    if (!window.confirm('Are you sure you want to delete this poll?')) return;
+    const confirmed = await requestConfirm("Are you sure you want to delete this poll?");
+    if (!confirmed) return;
     try {
       const token = localStorage.getItem("token");
       await axios.delete(`http://localhost:5000/api/polls/delete/${pollId}`, {
@@ -127,8 +142,9 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
       });
       setPollsData((prev) => prev.filter((poll) => poll._id !== pollId));
       setSelectedPoll(null);
+      notify("Poll deleted successfully", "success");
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to delete poll");
+      notify(error.response?.data?.message || "Failed to delete poll", "error");
     }
   };
 
@@ -148,11 +164,13 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
       if (updatedPoll) {
         setPollsData((prev) => prev.map((poll) => (poll._id === pollId ? updatedPoll : poll)));
         setSelectedPoll(updatedPoll);
+        notify("Vote recorded successfully", "success");
       } else {
         await fetchPolls();
+        notify("Vote recorded successfully", "success");
       }
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to vote");
+      notify(error.response?.data?.message || "Failed to vote", "error");
     }
   };
 
@@ -172,9 +190,10 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
       if (closedPoll) {
         setPollsData((prev) => prev.map((poll) => (poll._id === pollId ? closedPoll : poll)));
         setSelectedPoll(closedPoll);
+        notify("Poll closed successfully", "success");
       }
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to close poll");
+      notify(error.response?.data?.message || "Failed to close poll", "error");
     }
   };
 

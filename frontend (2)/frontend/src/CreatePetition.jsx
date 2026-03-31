@@ -2,7 +2,7 @@ import axios from "axios";
 import { useState } from "react";
 import "./civic.css";
 
-const CreatePetition = ({ userData, onNavigate }) => {
+const CreatePetition = ({ userData, onNavigate, showToast }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
@@ -56,6 +56,13 @@ const CreatePetition = ({ userData, onNavigate }) => {
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  const notify = (message, type = "info") => {
+    if (!message) return;
+    if (typeof showToast === "function") {
+      showToast(message, type);
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -71,7 +78,7 @@ const CreatePetition = ({ userData, onNavigate }) => {
       const token = localStorage.getItem("token");
 
       if (!token) {
-        alert("Please login again to create a petition");
+        notify("Please login again to create a petition", "error");
         return;
       }
 
@@ -90,10 +97,10 @@ const CreatePetition = ({ userData, onNavigate }) => {
         }
       );
 
-      alert("Petition created successfully");
+      notify("Petition created successfully", "success");
       onNavigate("petitions");
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to create petition");
+      notify(error.response?.data?.message || "Failed to create petition", "error");
     }
   };
 

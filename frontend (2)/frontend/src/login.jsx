@@ -2,7 +2,14 @@ import axios from "axios";
 import { useState } from "react";
 import "./civic.css";
 
-function Login({ onLogin }) {
+function Login({ onLogin, showToast }) {
+
+const notify = (message, type = "info") => {
+if (!message) return;
+if (typeof showToast === "function") {
+showToast(message, type);
+}
+};
 
 const [activeForm, setActiveForm] = useState("login");
 const [keepSignedIn, setKeepSignedIn] = useState(true);
@@ -31,7 +38,7 @@ data
 
 localStorage.setItem("token", res.data.token);
 
-alert("Login Successful");
+notify("Login successful", "success");
 
 if (onLogin) {
 onLogin(res.data);
@@ -39,7 +46,7 @@ onLogin(res.data);
 
 } catch (error) {
 
-alert(error.response?.data?.message || "Login failed");
+notify(error.response?.data?.message || "Login failed", "error");
 
 }
 
@@ -66,7 +73,7 @@ const res = await axios.post(
 data
 );
 
-alert(res.data.message);
+notify(res.data.message, "success");
 
 setEmailForOtp(data.email);
 
@@ -74,7 +81,7 @@ setActiveForm("otp");
 
 } catch (error) {
 
-alert(error.response?.data?.message || "Register failed");
+notify(error.response?.data?.message || "Register failed", "error");
 
 }
 
@@ -96,13 +103,13 @@ otp: otp
 }
 );
 
-alert(res.data.message || "Email verified successfully");
+notify(res.data.message || "Email verified successfully", "success");
 
 setActiveForm("login");
 
 } catch (error) {
 
-alert(error.response?.data?.message || "OTP verification failed");
+notify(error.response?.data?.message || "OTP verification failed", "error");
 
 }
 
@@ -125,13 +132,13 @@ await axios.post(
 
 setEmailForOtp(email);
 
-alert("OTP sent to your email");
+notify("OTP sent to your email", "success");
 
 setActiveForm("reset");
 
 }catch(error){
 
-alert(error.response?.data?.message || "Error sending OTP");
+notify(error.response?.data?.message || "Error sending OTP", "error");
 
 }
 
@@ -154,13 +161,13 @@ newPassword: newPassword
 }
 );
 
-alert("Password updated successfully");
+notify("Password updated successfully", "success");
 
 setActiveForm("login");
 
 }catch(error){
 
-alert(error.response?.data?.message || "Reset failed");
+notify(error.response?.data?.message || "Reset failed", "error");
 
 }
 

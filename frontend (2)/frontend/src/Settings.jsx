@@ -2,7 +2,7 @@ import axios from "axios";
 import { useState } from "react";
 import "./civic.css";
 
-const Settings = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
+const Settings = ({ userData, onLogout, onNavigate, onUpdateUser, showToast }) => {
   const user = userData || {};
   const displayName = user.name || 'User';
   const userInitial = displayName.charAt(0).toUpperCase();
@@ -22,6 +22,13 @@ const Settings = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem('civix_darkMode') === 'true'
   );
+
+  const notify = (message, type = "info") => {
+    if (!message) return;
+    if (typeof showToast === "function") {
+      showToast(message, type);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -64,9 +71,9 @@ const Settings = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
         onUpdateUser(res.data.user);
       }
 
-      alert("Profile updated successfully!");
+      notify("Profile updated successfully!", "success");
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to update profile");
+      notify(error.response?.data?.message || "Failed to update profile", "error");
     }
   };
 
@@ -74,17 +81,17 @@ const Settings = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
     e.preventDefault();
     
     if (!formData.currentPassword) {
-      alert('Please enter your current password');
+      notify('Please enter your current password', 'error');
       return;
     }
     
     if (formData.newPassword !== formData.confirmPassword) {
-      alert('New passwords do not match');
+      notify('New passwords do not match', 'error');
       return;
     }
     
     if (formData.newPassword.length < 6) {
-      alert('Password must be at least 6 characters');
+      notify('Password must be at least 6 characters', 'error');
       return;
     }
     
@@ -104,7 +111,7 @@ const Settings = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
         }
       );
 
-      alert("Password changed successfully!");
+      notify("Password changed successfully!", "success");
       setFormData(prev => ({
         ...prev,
         currentPassword: '',
@@ -112,7 +119,7 @@ const Settings = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
         confirmPassword: ''
       }));
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to change password");
+      notify(error.response?.data?.message || "Failed to change password", "error");
     }
   };
 
