@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useState } from "react";
-import { notifyError, notifySuccess } from "./notify";
+import { notifyError, notifyInfo, notifySuccess } from "./notify";
 import "./civic.css";
 
 function Login({ onLogin }) {
@@ -11,6 +11,7 @@ const [keepSignedIn, setKeepSignedIn] = useState(true);
 const [otp, setOtp] = useState("");
 const [emailForOtp, setEmailForOtp] = useState("");
 const [newPassword, setNewPassword] = useState("");
+const [loginEmail, setLoginEmail] = useState("");
 
 // ================= LOGIN =================
 
@@ -39,8 +40,17 @@ onLogin(res.data);
 }
 
 } catch (error) {
+const message = error.response?.data?.message || "Login failed";
 
-notifyError(error.response?.data?.message || "Login failed");
+if (message.toLowerCase().includes("verify your email")) {
+setEmailForOtp(data.email);
+setOtp("");
+notifyInfo("Please enter the OTP sent to your email.");
+setActiveForm("otp");
+return;
+}
+
+notifyError(message);
 
 }
 
@@ -69,9 +79,13 @@ data
 
 notifySuccess(res.data.message || "Registration successful");
 
+if (data.role === "admin") {
+setActiveForm("login");
+} else {
 setEmailForOtp(data.email);
-
+setOtp("");
 setActiveForm("otp");
+}
 
 } catch (error) {
 
@@ -99,11 +113,37 @@ otp: otp
 
 notifySuccess(res.data.message || "Email verified successfully");
 
+setOtp("");
+setLoginEmail(emailForOtp);
 setActiveForm("login");
 
 } catch (error) {
 
 notifyError(error.response?.data?.message || "OTP verification failed");
+
+}
+
+};
+
+const handleResendVerificationOtp = async () => {
+
+if (!emailForOtp) {
+notifyError("Please register first to set your email for verification");
+return;
+}
+
+try {
+
+const res = await axios.post(
+"http://localhost:5000/api/auth/resend-verification",
+{ email: emailForOtp }
+);
+
+notifySuccess(res.data?.message || "A new OTP has been sent");
+
+} catch (error) {
+
+notifyError(error.response?.data?.message || "Failed to resend OTP");
 
 }
 
@@ -119,14 +159,19 @@ const email = e.target.email.value;
 
 try{
 
-await axios.post(
+const res = await axios.post(
 "http://localhost:5000/api/auth/forgot-password",
 { email }
 );
 
 setEmailForOtp(email);
 
-notifySuccess("OTP sent to your email");
+notifySuccess(res.data?.message || "OTP sent to your email");
+
+if (res.data?.devOtp) {
+setOtp(String(res.data.devOtp));
+notifyInfo(`Dev OTP: ${res.data.devOtp}`);
+}
 
 setActiveForm("reset");
 
@@ -340,7 +385,13 @@ Register </button>
 
 <div className="login-field">
 <label>Email</label>
-<input type="email" name="email" required />
+<input
+type="email"
+name="email"
+value={loginEmail}
+onChange={(e) => setLoginEmail(e.target.value)}
+required
+/>
 </div>
 
 <div className="login-field">
@@ -403,6 +454,7 @@ Register now
 <option value="">-- Select --</option>
 <option value="citizen">Citizen</option>
 <option value="official">Public Official</option>
+<option value="admin">Admin</option>
 
 </select>
 
@@ -422,6 +474,8 @@ Create Account
 
 <form className="login-form" onSubmit={handleVerifyOtp}>
 
+<p className="login-subtitle">Verifying: {emailForOtp}</p>
+
 <div className="login-field">
 
 <label>Enter OTP</label>
@@ -438,6 +492,12 @@ required
 <button type="submit" className="login-btn">
 Verify OTP
 </button>
+
+<p className="login-link">
+<a onClick={handleResendVerificationOtp}>
+Resend OTP
+</a>
+</p>
 
 </form>
 

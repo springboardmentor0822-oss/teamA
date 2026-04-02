@@ -7,6 +7,7 @@ const {
   registerUser,
   loginUser,
   verifyEmail,
+  resendVerificationOtp,
   forgotPassword,
   resetPassword,
   getMe,
@@ -18,6 +19,7 @@ const auth = require("../middleware/authMiddleware");
 router.post("/register", registerUser);
 
 router.post("/verify-email", verifyEmail);
+router.post("/resend-verification", resendVerificationOtp);
 
 router.post("/login", loginUser);
 

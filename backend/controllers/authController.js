@@ -8,6 +8,22 @@ const {
   getWelcomeEmailTemplate,
 } = require("../utils/emailTemplate");
 
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
+
+const hashOtp = (otp) => crypto.createHash("sha256").update(otp).digest("hex");
+
+const isEmailConfigured = () => {
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+
+  if (!user || !pass) return false;
+  if (user === "your_gmail_address") return false;
+  if (pass === "your_gmail_app_password") return false;
+
+  return true;
+};
+
 // ================= GENERATE JWT =================
 const generateToken = (user) => {
   return jwt.sign(
@@ -27,30 +43,74 @@ const generateToken = (user) => {
 exports.registerUser = async (req, res) => {
   try {
     const { name, email, password, role, location } = req.body;
+    const requestedRole = role || "citizen";
+    const isAdminRegistration = requestedRole === "admin";
 
     if (!name || !email || !password || !location) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    if (!isEmailConfigured() && !isAdminRegistration) {
+      return res.status(500).json({
+        message:
+          "Email service is not configured. Please set EMAIL_USER and EMAIL_PASS in backend/.env.",
+      });
+    }
+
     const userExists = await User.findOne({ email });
     if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
+      if (userExists.isVerified) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      const otp = generateOtp();
+      userExists.verificationToken = hashOtp(otp);
+      userExists.verificationTokenExpiresAt = Date.now() + 5 * 60 * 1000;
+      userExists.otpAttempts = 0;
+      await userExists.save();
+
+      const html = getVerificationEmailTemplate(otp);
+      await sendEmail({
+        to: email,
+        subject: "Verify Your Email - Civix",
+        html,
+      });
+
+      return res.status(200).json({
+        message: "Account exists but is not verified. A new OTP was sent.",
+      });
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    if (isAdminRegistration) {
+      await User.create({
+        name,
+        email,
+        password: hashedPassword,
+        role: requestedRole,
+        location,
+        isVerified: true,
+        verificationToken: undefined,
+        verificationTokenExpiresAt: undefined,
+        otpAttempts: 0,
+      });
 
-    // Hash OTP
-    const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
+      return res.status(201).json({
+        message: "Admin account created successfully. You can now login.",
+      });
+    }
 
-    const user = await User.create({
+    // Generate and hash OTP
+    const otp = generateOtp();
+    const hashedOTP = hashOtp(otp);
+
+    await User.create({
       name,
       email,
       password: hashedPassword,
-      role,
+      role: requestedRole,
       location,
       verificationToken: hashedOTP,
       verificationTokenExpiresAt: Date.now() + 5 * 60 * 1000, // 5 min
@@ -65,11 +125,58 @@ exports.registerUser = async (req, res) => {
       html: html,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "OTP sent to your email. Please verify before login.",
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+};
+
+// ================= RESEND VERIFICATION OTP =================
+exports.resendVerificationOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    if (!isEmailConfigured()) {
+      return res.status(500).json({
+        message:
+          "Email service is not configured. Please set EMAIL_USER and EMAIL_PASS in backend/.env.",
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: "User already verified" });
+    }
+
+    const otp = generateOtp();
+    user.verificationToken = hashOtp(otp);
+    user.verificationTokenExpiresAt = Date.now() + 5 * 60 * 1000;
+    user.otpAttempts = 0;
+    await user.save();
+
+    const html = getVerificationEmailTemplate(otp);
+    await sendEmail({
+      to: email,
+      subject: "Verify Your Email - Civix",
+      html,
+    });
+
+    return res.status(200).json({
+      message: "A new OTP was sent to your email.",
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Server error" });
   }
 };
 
@@ -91,6 +198,12 @@ exports.verifyEmail = async (req, res) => {
 
     if (user.isVerified) {
       return res.status(400).json({ message: "User already verified" });
+    }
+
+    if (!user.verificationToken || !user.verificationTokenExpiresAt) {
+      return res.status(400).json({
+        message: "No active OTP found. Please request a new OTP.",
+      });
     }
 
     if (user.verificationTokenExpiresAt < Date.now()) {
@@ -120,14 +233,19 @@ exports.verifyEmail = async (req, res) => {
     await user.save();
     const welcomeHtml = getWelcomeEmailTemplate(user.name);
 
-    await sendEmail({
-      to: user.email,
-      subject: "Welcome to Civix ",
-      html: welcomeHtml,
-    });
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Welcome to Civix ",
+        html: welcomeHtml,
+      });
+    } catch (emailError) {
+      console.error("Welcome email failed:", emailError.message);
+    }
 
     res.status(200).json({
       message: "Email verified successfully. You can now login.",
+      redirectTo: "login",
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -136,6 +254,7 @@ exports.verifyEmail = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
+    const otpDevMode = process.env.OTP_DEV_MODE === "true";
 
     const user = await User.findOne({ email });
 
@@ -152,6 +271,13 @@ exports.forgotPassword = async (req, res) => {
 
     await user.save();
 
+    if (otpDevMode) {
+      return res.json({
+        message: "Password reset OTP generated in development mode.",
+        devOtp: otp,
+      });
+    }
+
     const html = `<h2>Your OTP for password reset: ${otp}</h2>`;
 
     await sendEmail({
@@ -164,7 +290,7 @@ exports.forgotPassword = async (req, res) => {
       message: "OTP sent to your email",
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: error.message || "Server error" });
   }
 };
 exports.resetPassword = async (req, res) => {
