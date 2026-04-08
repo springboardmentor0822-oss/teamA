@@ -79,13 +79,9 @@ data
 
 notifySuccess(res.data.message || "Registration successful");
 
-if (data.role === "admin") {
-setActiveForm("login");
-} else {
 setEmailForOtp(data.email);
 setOtp("");
 setActiveForm("otp");
-}
 
 } catch (error) {
 
@@ -454,7 +450,6 @@ Register now
 <option value="">-- Select --</option>
 <option value="citizen">Citizen</option>
 <option value="official">Public Official</option>
-<option value="admin">Admin</option>
 
 </select>
 
