@@ -377,23 +377,6 @@ body.dark-mode .toggle-switch.active {
   border-color: transparent;
 }
 
-body.dark-mode .pref-toggle-row {
-  border-bottom-color: rgba(168, 85, 247, 0.2);
-}
-
-body.dark-mode .pref-toggle-row span {
-  color: #ffffff;
-}
-
-body.dark-mode .toggle-btn {
-  background: rgba(100, 100, 120, 0.3);
-  border: none;
-}
-
-body.dark-mode .toggle-btn.active {
-  background: #8f4ff2;
-}
-
 body.dark-mode .btn-save-settings {
   background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
   box-shadow: 0 4px 16px rgba(168, 85, 247, 0.3);
@@ -1640,56 +1623,6 @@ body.dark-mode .status-badge-lg {
   font-size: 13px;
   color: #605f7f;
   margin: 0 0 8px 0;
-}
-
-/* ====== TOGGLE BUTTONS ====== */
-.pref-toggle-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid #ebe3ff;
-}
-
-.pref-toggle-row:last-child {
-  border-bottom: none;
-}
-
-.pref-toggle-row span {
-  font-size: 14px;
-  font-weight: 600;
-  color: #605f7f;
-}
-
-.toggle-btn {
-  width: 50px;
-  height: 28px;
-  border: none;
-  border-radius: 14px;
-  background: #d9d0ff;
-  cursor: pointer;
-  position: relative;
-  padding: 0;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  padding: 2px;
-  justify-content: flex-start;
-}
-
-.toggle-btn.active {
-  background: #8f4ff2;
-  justify-content: flex-end;
-}
-
-.toggle-slider {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: white;
-  display: block;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 @media (max-width: 1024px) {
