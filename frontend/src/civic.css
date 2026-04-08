@@ -114,6 +114,74 @@ body.dark-mode .dashboard-page {
   background: #0a0a0f;
 }
 
+body.dark-mode .official-admin-wrap {
+  background: #0a0a0f;
+}
+
+body.dark-mode .official-admin-top {
+  background: rgba(18, 18, 28, 0.98);
+  border-bottom-color: rgba(168, 85, 247, 0.3);
+}
+
+body.dark-mode .official-admin-logo {
+  color: #c4b5fd;
+}
+
+body.dark-mode .official-admin-badge {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c4b5fd;
+}
+
+body.dark-mode .official-profile-mini strong,
+body.dark-mode .official-profile-mini p {
+  color: #ffffff;
+}
+
+body.dark-mode .official-admin-sidebar,
+body.dark-mode .official-section,
+body.dark-mode .official-panel {
+  background: rgba(30, 30, 46, 0.9);
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+body.dark-mode .official-admin-sidebar h3,
+body.dark-mode .official-admin-sidebar ul,
+body.dark-mode .official-section-head h2,
+body.dark-mode .official-section-head p,
+body.dark-mode .official-panel h4,
+body.dark-mode .pref-toggle-row span,
+body.dark-mode .official-verify-state,
+body.dark-mode .official-verify-card p,
+body.dark-mode .official-settings-card p {
+  color: #ffffff;
+}
+
+body.dark-mode .official-verify-card,
+body.dark-mode .official-settings-card,
+body.dark-mode .official-list-card,
+body.dark-mode .official-log-item,
+body.dark-mode .official-stat-card,
+body.dark-mode .official-alerts-box {
+  background: rgba(20, 20, 35, 0.9);
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+body.dark-mode .official-form input,
+body.dark-mode .official-list-card textarea,
+body.dark-mode .official-panel textarea,
+body.dark-mode .official-filter-row input,
+body.dark-mode .official-filter-row select {
+  background: rgba(15, 15, 25, 0.85);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #ffffff;
+}
+
+body.dark-mode .official-form input::placeholder,
+body.dark-mode .official-list-card textarea::placeholder,
+body.dark-mode .official-panel textarea::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
 body.dark-mode .topbar {
   background: rgba(18, 18, 28, 0.98);
   border-bottom: 1px solid rgba(168, 85, 247, 0.3);
@@ -1299,6 +1367,10 @@ body.dark-mode .status-badge-lg {
   color: #6d3de0;
 }
 
+.official-back-btn {
+  width: 100%;
+}
+
 .official-verify-card,
 .official-settings-card {
   border: 1px solid #ebe3ff;
@@ -1508,7 +1580,7 @@ body.dark-mode .status-badge-lg {
 }
 
 .official-actions-row button,
-.official-panel button,
+.official-panel button:not(.toggle-btn),
 .official-filter-row button,
 .official-download-grid button {
   border: none;
@@ -1678,24 +1750,23 @@ body.dark-mode .status-badge-lg {
   height: 32px;
   border: none;
   border-radius: 16px;
-  background: #e0d5ff;
+  background: #cfd4db;
   cursor: pointer;
   position: relative;
   padding: 3px;
-  transition: all 0.35s ease;
-  display: flex;
+  transition: background 0.25s ease;
+  display: inline-flex;
   align-items: center;
   justify-content: flex-start;
   flex-shrink: 0;
 }
 
 .toggle-btn:hover {
-  background: #d4c4ff;
+  background: #c1c8d1;
 }
 
 .toggle-btn.active {
   background: #8f4ff2;
-  justify-content: flex-end;
 }
 
 .toggle-btn.active:hover {
@@ -1708,8 +1779,13 @@ body.dark-mode .status-badge-lg {
   border-radius: 50%;
   background: #ffffff;
   display: block;
-  transition: all 0.35s ease;
+  transform: translateX(0);
+  transition: transform 0.25s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.toggle-btn.active .toggle-slider {
+  transform: translateX(24px);
 }
 
 @media (max-width: 1024px) {

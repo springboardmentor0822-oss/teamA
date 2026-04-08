@@ -38,6 +38,39 @@ const userSchema = new mongoose.Schema(
       default: false
     },
 
+    preferences: {
+      darkMode: {
+        type: Boolean,
+        default: false,
+      },
+      emailNotifications: {
+        type: Boolean,
+        default: false,
+      },
+      inAppAlerts: {
+        type: Boolean,
+        default: false,
+      },
+      criticalAlertsOnly: {
+        type: Boolean,
+        default: false,
+      },
+    },
+
+    adminVerification: {
+      status: {
+        type: String,
+        enum: ["pending", "requested", "verified"],
+        default: "pending",
+      },
+      officeId: {
+        type: String,
+        default: "",
+      },
+      requestedAt: Date,
+      verifiedAt: Date,
+    },
+
     // 🔐 OTP fields (Email Verification)
     verificationToken: String,
     verificationTokenExpiresAt: Date,

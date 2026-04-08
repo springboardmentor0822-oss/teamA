@@ -23,19 +23,35 @@ const SettingsOfficials = ({ userData, onNavigate, onUpdateUser, onLogout }) => 
   });
 
   const [adminVerifyForm, setAdminVerifyForm] = useState({
-    officeId: localStorage.getItem("official_office_id") || "",
+    officeId: user.adminVerification?.officeId || localStorage.getItem("official_office_id") || "",
     verificationCode: "",
   });
 
   const [adminVerificationState, setAdminVerificationState] = useState(
-    localStorage.getItem(`official_admin_verified_${user._id || "anon"}`) || "pending",
+    user.adminVerification?.status
+      || localStorage.getItem(`official_admin_verified_${user._id || "anon"}`)
+      || "pending",
   );
 
-  const [prefEmailAlerts, setPrefEmailAlerts] = useState(false);
-  const [prefCriticalOnly, setPrefCriticalOnly] = useState(false);
-  const [prefInAppAlerts, setPrefInAppAlerts] = useState(false);
+  const [prefEmailAlerts, setPrefEmailAlerts] = useState(
+    typeof user.preferences?.emailNotifications === "boolean"
+      ? user.preferences.emailNotifications
+      : false,
+  );
+  const [prefCriticalOnly, setPrefCriticalOnly] = useState(
+    typeof user.preferences?.criticalAlertsOnly === "boolean"
+      ? user.preferences.criticalAlertsOnly
+      : false,
+  );
+  const [prefInAppAlerts, setPrefInAppAlerts] = useState(
+    typeof user.preferences?.inAppAlerts === "boolean"
+      ? user.preferences.inAppAlerts
+      : false,
+  );
   const [darkMode, setDarkMode] = useState(
-    localStorage.getItem("civix_darkMode") === "true",
+    typeof user.preferences?.darkMode === "boolean"
+      ? user.preferences.darkMode
+      : localStorage.getItem("civix_darkMode") === "true",
   );
 
   const handleSettingsInput = (e) => {
@@ -49,22 +65,41 @@ const SettingsOfficials = ({ userData, onNavigate, onUpdateUser, onLogout }) => 
   };
 
   const handleDarkModeToggle = () => {
-    const next = !darkMode;
-    setDarkMode(next);
-    localStorage.setItem("civix_darkMode", String(next));
-    if (next) {
-      document.body.classList.add("dark-mode");
-    } else {
-      document.body.classList.remove("dark-mode");
-    }
+    setDarkMode((prev) => !prev);
   };
 
-  const handleSavePreferences = () => {
-    localStorage.setItem("official_pref_email_alerts", String(prefEmailAlerts));
-    localStorage.setItem("official_pref_critical_only", String(prefCriticalOnly));
-    localStorage.setItem("official_pref_inapp_alerts", String(prefInAppAlerts));
-    localStorage.setItem("official_department", settingsForm.department || "");
-    notifySuccess("Official settings saved");
+  const handleSavePreferences = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await axios.put(
+        `${API_BASE_URL}/auth/me`,
+        {
+          preferences: {
+            darkMode,
+            emailNotifications: prefEmailAlerts,
+            inAppAlerts: prefInAppAlerts,
+            criticalAlertsOnly: prefCriticalOnly,
+          },
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (onUpdateUser && res.data?.user) {
+        onUpdateUser(res.data.user);
+      }
+
+      localStorage.setItem("civix_darkMode", String(darkMode));
+      localStorage.setItem("official_pref_email_alerts", String(prefEmailAlerts));
+      localStorage.setItem("official_pref_critical_only", String(prefCriticalOnly));
+      localStorage.setItem("official_pref_inapp_alerts", String(prefInAppAlerts));
+      localStorage.setItem("official_department", settingsForm.department || "");
+      notifySuccess("Official settings saved");
+    } catch (error) {
+      notifyError(error.response?.data?.message || "Failed to save official settings");
+    }
   };
 
   const handleUpdateOfficialProfile = async (e) => {
@@ -135,7 +170,7 @@ const SettingsOfficials = ({ userData, onNavigate, onUpdateUser, onLogout }) => 
     }
   };
 
-  const handleVerifyAdminAccess = (e) => {
+  const handleVerifyAdminAccess = async (e) => {
     e.preventDefault();
 
     if (!adminVerifyForm.officeId.trim()) {
@@ -148,15 +183,39 @@ const SettingsOfficials = ({ userData, onNavigate, onUpdateUser, onLogout }) => 
       return;
     }
 
-    const nextState = user.role === "admin" ? "verified" : "requested";
-    setAdminVerificationState(nextState);
-    localStorage.setItem("official_office_id", adminVerifyForm.officeId.trim());
-    localStorage.setItem(`official_admin_verified_${user._id || "anon"}`, nextState);
-    notifySuccess(
-      nextState === "verified"
-        ? "Administrator verification completed"
-        : "Verification request submitted for admin approval",
-    );
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await axios.put(
+        `${API_BASE_URL}/auth/me`,
+        {
+          adminVerification: {
+            officeId: adminVerifyForm.officeId.trim(),
+            request: true,
+          },
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      const nextState = res.data?.user?.adminVerification?.status || (user.role === "admin" ? "verified" : "requested");
+      setAdminVerificationState(nextState);
+
+      if (onUpdateUser && res.data?.user) {
+        onUpdateUser(res.data.user);
+      }
+
+      localStorage.setItem("official_office_id", adminVerifyForm.officeId.trim());
+      localStorage.setItem(`official_admin_verified_${user._id || "anon"}`, nextState);
+      notifySuccess(
+        nextState === "verified"
+          ? "Administrator verification completed"
+          : "Verification request submitted for admin approval",
+      );
+    } catch (error) {
+      notifyError(error.response?.data?.message || "Failed to submit verification request");
+    }
   };
 
   useEffect(() => {
@@ -168,6 +227,14 @@ const SettingsOfficials = ({ userData, onNavigate, onUpdateUser, onLogout }) => 
     if (criticalPref !== null) setPrefCriticalOnly(criticalPref === "true");
     if (inAppPref !== null) setPrefInAppAlerts(inAppPref === "true");
   }, []);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.add("dark-mode");
+    } else {
+      document.body.classList.remove("dark-mode");
+    }
+  }, [darkMode]);
 
   return (
     <div className="official-admin-wrap">
@@ -192,11 +259,7 @@ const SettingsOfficials = ({ userData, onNavigate, onUpdateUser, onLogout }) => 
         <aside className="official-admin-sidebar">
           <h3>Navigation</h3>
           <ul>
-            <li>
-              <button className="nav-link-btn" onClick={() => onNavigate("officials")}>
-                ← Back to Dashboard
-              </button>
-            </li>
+            <li>Official Settings</li>
           </ul>
 
           <div className="official-verify-card">
@@ -210,6 +273,13 @@ const SettingsOfficials = ({ userData, onNavigate, onUpdateUser, onLogout }) => 
             <h4>Quick Info</h4>
             <p>Update your profile, security settings, preferences, and admin verification status on this page.</p>
           </div>
+
+          <button
+            className="official-settings-btn secondary official-back-btn"
+            onClick={() => onNavigate("officials")}
+          >
+            Back to Dashboard
+          </button>
         </aside>
 
         <main className="official-admin-main">

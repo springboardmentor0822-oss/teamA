@@ -350,6 +350,8 @@ exports.loginUser = async (req, res) => {
       email: user.email,
       role: user.role,
       location: user.location,
+      preferences: user.preferences,
+      adminVerification: user.adminVerification,
       token: generateToken(user),
     });
   } catch (err) {
@@ -373,7 +375,7 @@ exports.getMe = async (req, res) => {
 
 exports.updateMe = async (req, res) => {
   try {
-    const { name, email, location } = req.body;
+    const { name, email, location, preferences, adminVerification } = req.body;
 
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -391,6 +393,56 @@ exports.updateMe = async (req, res) => {
     if (name) user.name = name;
     if (location) user.location = location;
 
+    if (preferences && typeof preferences === "object") {
+      const currentPreferences = user.preferences || {};
+      user.preferences = {
+        ...currentPreferences,
+        ...(typeof preferences.darkMode === "boolean"
+          ? { darkMode: preferences.darkMode }
+          : {}),
+        ...(typeof preferences.emailNotifications === "boolean"
+          ? { emailNotifications: preferences.emailNotifications }
+          : {}),
+        ...(typeof preferences.inAppAlerts === "boolean"
+          ? { inAppAlerts: preferences.inAppAlerts }
+          : {}),
+        ...(typeof preferences.criticalAlertsOnly === "boolean"
+          ? { criticalAlertsOnly: preferences.criticalAlertsOnly }
+          : {}),
+      };
+    }
+
+    if (
+      adminVerification
+      && typeof adminVerification === "object"
+      && ["official", "admin"].includes(user.role)
+    ) {
+      const currentAdminVerification = user.adminVerification || {};
+      const officeId = typeof adminVerification.officeId === "string"
+        ? adminVerification.officeId.trim()
+        : currentAdminVerification.officeId || "";
+
+      let status = currentAdminVerification.status || "pending";
+      let requestedAt = currentAdminVerification.requestedAt;
+      let verifiedAt = currentAdminVerification.verifiedAt;
+
+      if (adminVerification.request === true) {
+        status = user.role === "admin" ? "verified" : "requested";
+        requestedAt = new Date();
+        if (user.role === "admin") {
+          verifiedAt = new Date();
+        }
+      }
+
+      user.adminVerification = {
+        ...currentAdminVerification,
+        officeId,
+        status,
+        requestedAt,
+        verifiedAt,
+      };
+    }
+
     await user.save();
 
     res.status(200).json({
@@ -401,6 +453,8 @@ exports.updateMe = async (req, res) => {
         email: user.email,
         role: user.role,
         location: user.location,
+        preferences: user.preferences,
+        adminVerification: user.adminVerification,
       },
     });
   } catch (error) {
