@@ -14,8 +14,8 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
   const userEmail = user.email || "";
   const userId = user._id || "";
   const userLocation = user.location || "Your City";
-  const userRole = user.role === "official" ? "Unverified Official" : "Citizen";
-  const isOfficialUser = user.role === "official";
+  const isOfficialUser = ["official", "admin"].includes(user.role);
+  const userRole = user.role === "admin" ? "Admin" : isOfficialUser ? "Unverified Official" : "Citizen";
   const [activeTab, setActiveTab] = useState("community");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [petitionsData, setPetitionsData] = useState([]);

@@ -42,10 +42,12 @@ exports.getOfficialLocalityPetitions = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("role location");
 
-    if (!user || user.role !== "official") {
+    const isOfficialOrAdmin = user && ["official", "admin"].includes(user.role);
+
+    if (!isOfficialOrAdmin) {
       return res
         .status(403)
-        .json({ message: "Only officials can access this data" });
+        .json({ message: "Only officials or admins can access this data" });
     }
 
     const normalizedLocation = String(user.location || "").trim();

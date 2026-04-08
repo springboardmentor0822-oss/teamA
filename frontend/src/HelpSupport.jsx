@@ -6,7 +6,7 @@ const HelpSupport = ({ userData, onLogout, onNavigate }) => {
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
   const userLocation = user.location || 'Your City';
-  const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
+  const userRole = user.role === "admin" ? "Admin" : user.role === "official" ? "Unverified Official" : "Citizen";
 
   return (
     <div className="dashboard-page">

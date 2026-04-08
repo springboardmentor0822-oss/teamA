@@ -30,8 +30,8 @@ const Polls = ({ userData, onLogout, onNavigate }) => {
   const userEmail = user.email || "";
   const userId = user._id || "";
   const userLocation = user.location || "Your City";
-  const userRole = user.role === "official" ? "Unverified Official" : "Citizen";
-  const isOfficialUser = user.role === "official";
+  const isOfficialUser = ["official", "admin"].includes(user.role);
+  const userRole = user.role === "admin" ? "Admin" : isOfficialUser ? "Unverified Official" : "Citizen";
 
   const [activeTab, setActiveTab] = useState("active");
   const [selectedLocation, setSelectedLocation] = useState("All Locations");

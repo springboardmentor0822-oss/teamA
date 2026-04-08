@@ -9,7 +9,7 @@ const Settings = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
   const userInitial = displayName.charAt(0).toUpperCase();
   const userEmail = user.email || '';
   const userLocation = user.location || 'Your City';
-  const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
+  const userRole = user.role === "admin" ? "Admin" : user.role === "official" ? "Unverified Official" : "Citizen";
 
   const [formData, setFormData] = useState({
     name: user.name || '',

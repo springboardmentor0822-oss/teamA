@@ -10,8 +10,8 @@ const Petitions = ({ userData, onLogout, onNavigate, initialPetitionId, onPetiti
   const userEmail = user.email || '';
   const userId = user._id || '';
   const userLocation = user.location || 'Bangalore';
-  const userRole = user.role === 'official' ? 'Unverified Official' : 'Citizen';
-  const isOfficialUser = user.role === "official";
+  const isOfficialUser = ["official", "admin"].includes(user.role);
+  const userRole = user.role === "admin" ? "Admin" : isOfficialUser ? "Unverified Official" : "Citizen";
 
   const [activeTab, setActiveTab] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("All Locations");
