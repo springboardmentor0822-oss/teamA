@@ -44,19 +44,13 @@ exports.registerUser = async (req, res) => {
   try {
     const { name, email, password, role, location } = req.body;
     const requestedRole = role || "citizen";
-    const allowedSelfRoles = ["citizen", "official"];
+    const isAdminRegistration = requestedRole === "admin";
 
     if (!name || !email || !password || !location) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    if (!allowedSelfRoles.includes(requestedRole)) {
-      return res.status(400).json({
-        message: "Only citizen or official registration is allowed",
-      });
-    }
-
-    if (!isEmailConfigured()) {
+    if (!isEmailConfigured() && !isAdminRegistration) {
       return res.status(500).json({
         message:
           "Email service is not configured. Please set EMAIL_USER and EMAIL_PASS in backend/.env.",
@@ -89,6 +83,24 @@ exports.registerUser = async (req, res) => {
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
+
+    if (isAdminRegistration) {
+      await User.create({
+        name,
+        email,
+        password: hashedPassword,
+        role: requestedRole,
+        location,
+        isVerified: true,
+        verificationToken: undefined,
+        verificationTokenExpiresAt: undefined,
+        otpAttempts: 0,
+      });
+
+      return res.status(201).json({
+        message: "Admin account created successfully. You can now login.",
+      });
+    }
 
     // Generate and hash OTP
     const otp = generateOtp();
@@ -318,7 +330,7 @@ exports.resetPassword = async (req, res) => {
 // ================= LOGIN USER =================
 exports.loginUser = async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { email, password } = req.body;
 
     const user = await User.findOne({ email });
 
@@ -336,12 +348,6 @@ exports.loginUser = async (req, res) => {
 
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid password" });
-    }
-
-    if (role && user.role !== role) {
-      return res.status(403).json({
-        message: `This account is registered as ${user.role}. Please select the correct login type.`,
-      });
     }
 
     res.status(200).json({

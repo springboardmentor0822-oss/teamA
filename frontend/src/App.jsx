@@ -8,7 +8,6 @@ import Polls from "./Polls";
 import CreatePoll from "./CreatePoll";
 import Reports from "./Reports";
 import Officials from "./Officials";
-import SettingsOfficials from "./SettingsOfficials";
 import Settings from "./Settings";
 import HelpSupport from "./HelpSupport";
 import { NOTIFY_EVENT_NAME } from "./notify";
@@ -48,11 +47,6 @@ function App() {
 
         setUserData(res.data);
         setIsLoggedIn(true);
-
-        // FIX: Redirect officials to officials page on app load
-        if (["official", "admin"].includes(res.data?.role)) {
-          setCurrentPage("officials");
-        }
       } catch {
         localStorage.removeItem("token");
       }
@@ -93,12 +87,6 @@ function App() {
   const handleLogin = (data) => {
     setUserData(data);
     setIsLoggedIn(true);
-
-    if (["official", "admin"].includes(data?.role)) {
-      setCurrentPage("officials");
-    } else {
-      setCurrentPage("dashboard");
-    }
   };
 
   const handleLogout = () => {
@@ -172,18 +160,10 @@ function App() {
             <Reports userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
           )}
           {currentPage === "officials" && (
-            <Officials
-              userData={userData}
-              onLogout={handleLogout}
-              onNavigate={handleNavigate}
-              onUpdateUser={handleUpdateUser}
-            />
+            <Officials userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />
           )}
           {currentPage === "settings" && (
             <Settings userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} onUpdateUser={handleUpdateUser} />
-          )}
-          {currentPage === "settingsOfficials" && (
-            <SettingsOfficials userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} onUpdateUser={handleUpdateUser} />
           )}
           {currentPage === "help" && (
             <HelpSupport userData={userData} onLogout={handleLogout} onNavigate={handleNavigate} />

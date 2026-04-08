@@ -29,9 +29,4 @@ router.patch("/status/:id", auth, updateStatus);
 const { signPetition } = require("../controllers/petitionController");
 router.patch("/sign/:id", auth, signPetition);
 
-const {
-  officialRespondToPetition,
-} = require("../controllers/petitionController");
-router.post("/official/respond/:id", auth, officialRespondToPetition);
-
 module.exports = router;

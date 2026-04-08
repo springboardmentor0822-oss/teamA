@@ -1,8 +1,6 @@
 const Petition = require("../models/Petition");
 const Signature = require("../models/Signature");
 const User = require("../models/User");
-const PetitionResponse = require("../models/PetitionResponse");
-const OfficialLog = require("../models/OfficialLog");
 
 const escapeRegExp = (value) =>
   String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -208,69 +206,5 @@ exports.signPetition = async (req, res) => {
     }
 
     res.status(500).json({ error: error.message });
-  }
-};
-
-exports.officialRespondToPetition = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { comment, status } = req.body;
-
-    const officialUser = await User.findById(req.user.id).select(
-      "role location name",
-    );
-
-    const isOfficialOrAdmin = officialUser
-      && ["official", "admin"].includes(officialUser.role);
-
-    if (!isOfficialOrAdmin) {
-      return res.status(403).json({
-        message: "Only officials can respond to petitions",
-      });
-    }
-
-    const petition = await Petition.findById(id).populate("creator", "name email");
-
-    if (!petition) {
-      return res.status(404).json({ message: "Petition not found" });
-    }
-
-    const sameLocality =
-      String(petition.location || "").trim().toLowerCase()
-      === String(officialUser.location || "").trim().toLowerCase();
-
-    if (!sameLocality && officialUser.role !== "admin") {
-      return res.status(403).json({
-        message: "You can only respond to petitions in your locality",
-      });
-    }
-
-    const nextStatus = status || "under_review";
-
-    if (!["active", "under_review", "closed", "resolved"].includes(nextStatus)) {
-      return res.status(400).json({ message: "Invalid status update" });
-    }
-
-    await PetitionResponse.create({
-      petition_id: petition._id,
-      official_id: req.user.id,
-      comment: comment || "",
-      status_update: nextStatus,
-    });
-
-    petition.status = nextStatus;
-    await petition.save();
-
-    await OfficialLog.create({
-      action: `Responded to petition \"${petition.title}\" with status ${nextStatus}`,
-      user_id: req.user.id,
-    });
-
-    res.status(200).json({
-      message: "Official response submitted successfully",
-      petition,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message || "Server error" });
   }
 };

@@ -12,7 +12,6 @@ const [otp, setOtp] = useState("");
 const [emailForOtp, setEmailForOtp] = useState("");
 const [newPassword, setNewPassword] = useState("");
 const [loginEmail, setLoginEmail] = useState("");
-const [accountType, setAccountType] = useState("citizen");
 
 // ================= LOGIN =================
 
@@ -22,8 +21,7 @@ e.preventDefault();
 
 const data = {
 email: e.target.email.value,
-password: e.target.password.value,
-role: accountType,
+password: e.target.password.value
 };
 
 try {
@@ -69,7 +67,7 @@ name: e.target[0].value,
 email: e.target[1].value,
 password: e.target[2].value,
 location: e.target[3].value,
-role: accountType,
+role: e.target[4].value
 };
 
 try {
@@ -397,18 +395,6 @@ required
 <input type="password" name="password" required />
 </div>
 
-<div className="login-field">
-<label>Login as</label>
-<select
-value={accountType}
-onChange={(e) => setAccountType(e.target.value)}
-required
->
-<option value="citizen">Citizen</option>
-<option value="official">Public Official</option>
-</select>
-</div>
-
 <button type="submit" className="login-btn">
 Sign In
 </button>
@@ -456,15 +442,17 @@ Register now
 </div>
 
 <div className="login-field">
-<label>Register as</label>
-<select
-value={accountType}
-onChange={(e) => setAccountType(e.target.value)}
-required
->
+
+<label>I am registering as:</label>
+
+<select required>
+
+<option value="">-- Select --</option>
 <option value="citizen">Citizen</option>
 <option value="official">Public Official</option>
+
 </select>
+
 </div>
 
 <button type="submit" className="login-btn">
