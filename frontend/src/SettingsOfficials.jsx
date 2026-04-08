@@ -31,9 +31,9 @@ const SettingsOfficials = ({ userData, onNavigate, onUpdateUser, onLogout }) => 
     localStorage.getItem(`official_admin_verified_${user._id || "anon"}`) || "pending",
   );
 
-  const [prefEmailAlerts, setPrefEmailAlerts] = useState(true);
+  const [prefEmailAlerts, setPrefEmailAlerts] = useState(false);
   const [prefCriticalOnly, setPrefCriticalOnly] = useState(false);
-  const [prefInAppAlerts, setPrefInAppAlerts] = useState(true);
+  const [prefInAppAlerts, setPrefInAppAlerts] = useState(false);
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem("civix_darkMode") === "true",
   );
