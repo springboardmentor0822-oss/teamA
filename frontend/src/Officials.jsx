@@ -32,6 +32,15 @@ const Officials = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
   const [petitions, setPetitions] = useState([]);
   const [polls, setPolls] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Citizen contact form state
+  const [contactForm, setContactForm] = useState({
+    department: "Environmental Department",
+    subject: "",
+    message: "",
+  });
+  const [contactMessages, setContactMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   const handleDarkModeToggle = () => {
     const next = !darkMode;
@@ -87,14 +96,121 @@ const Officials = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
     fetchOfficialData();
   }, [isOfficialUser]);
 
-
-
   useEffect(() => {
     if (!isOfficialUser) return;
     fetchMonthlyLogs();
   }, [isOfficialUser, selectedMonth]);
 
+  // Fetch citizen contact messages
+  useEffect(() => {
+    if (isOfficialUser) return;
+    const fetchMessages = async () => {
+      try {
+        setLoadingMessages(true);
+        const token = localStorage.getItem("token");
+        const response = await axios.get(
+          `${API_BASE_URL}/contact/my-messages?citizenId=${user._id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setContactMessages(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.log("Could not load messages:", error.message);
+        setContactMessages([]);
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+    fetchMessages();
+  }, [isOfficialUser, user._id]);
+
+  // Fetch official messages (for officials)
+  useEffect(() => {
+    if (!isOfficialUser) return;
+    const fetchOfficialMessages = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(
+          `${API_BASE_URL}/contact/official/messages?userLocation=${userLocation}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setContactMessages(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.log("Could not load official messages:", error.message);
+        setContactMessages([]);
+      }
+    };
+    fetchOfficialMessages();
+  }, [isOfficialUser, userLocation]);
+
   const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
+
+  // Handle contact form submission
+  const handleSendContactMessage = async () => {
+    if (!contactForm.subject.trim() || !contactForm.message.trim()) {
+      notifyError("Please fill in all fields");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        `${API_BASE_URL}/contact/send`,
+        {
+          citizenId: user._id,
+          citizenName: displayName,
+          citizenEmail: userEmail,
+          department: contactForm.department,
+          subject: contactForm.subject,
+          message: contactForm.message,
+          location: userLocation,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setContactForm({
+        department: "Environmental Department",
+        subject: "",
+        message: "",
+      });
+
+      // Refresh messages
+      const messagesRes = await axios.get(
+        `${API_BASE_URL}/contact/my-messages?citizenId=${user._id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setContactMessages(Array.isArray(messagesRes.data) ? messagesRes.data : []);
+
+      notifySuccess("Your message has been sent to the officials!");
+    } catch (error) {
+      notifyError(error.response?.data?.message || "Failed to send message");
+    }
+  };
+
+  // Handle official response to citizen message
+  const handleRespondToMessage = async (messageId) => {
+    const response = prompt("Enter your official response:");
+    if (!response || !response.trim()) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${API_BASE_URL}/contact/official/respond/${messageId}`,
+        { response },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Refresh messages
+      const messagesRes = await axios.get(
+        `${API_BASE_URL}/contact/official/messages?userLocation=${userLocation}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setContactMessages(Array.isArray(messagesRes.data) ? messagesRes.data : []);
+
+      notifySuccess("Response sent to citizen!");
+    } catch (error) {
+      notifyError(error.response?.data?.message || "Failed to send response");
+    }
+  };
 
   const petitionStats = useMemo(() => {
     const pending = petitions.filter((p) => normalizeStatus(p.status) === "active").length;
@@ -277,11 +393,351 @@ const Officials = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
 
   if (!isOfficialUser) {
     return (
-      <div className="official-admin-wrap">
-        <div className="official-admin-shell">
-          <h2>Official Access Only</h2>
-          <p>This workspace is available only to verified public officials.</p>
-          <button className="official-logout-btn" onClick={() => onNavigate("dashboard")}>Back to Dashboard</button>
+      <div className="dashboard-page">
+        <header className="topbar">
+          <div className="brand">
+            <div className="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M4 11.5L12 4l8 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M7 10.5v8h10v-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <span className="brand-name">Civix</span>
+            <span className="beta-pill">Beta</span>
+          </div>
+          <nav className="topnav">
+            <a onClick={() => onNavigate("dashboard")}>Home</a>
+            <a onClick={() => onNavigate("petitions")}>Petitions</a>
+            <a onClick={() => onNavigate("polls")}>Polls</a>
+            <a className="active" onClick={() => onNavigate("officials")}>Officials</a>
+          </nav>
+          <div className="top-actions">
+            <button className="icon-btn" aria-label="Notifications">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M15 17H5l1.5-2V10a5.5 5.5 0 0111 0v5L19 17h-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M10 19a2 2 0 004 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
+            <div className="profile-dropdown">
+              <div className="profile-trigger" onClick={onLogout}>
+                <div className="avatar">{userInitial}</div>
+                <span className="user-name">{displayName}</span>
+                <span className="chevron">v</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="layout">
+          <aside className="sidebar">
+            <div className="profile-card">
+              <div className="profile-top">
+                <div className="avatar lg">{userInitial}</div>
+                <div>
+                  <h4>{displayName}</h4>
+                  <p>Citizen</p>
+                </div>
+              </div>
+              <div className="profile-info">
+                <div className="info-row">
+                  <span className="info-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path d="M12 21s6-6.2 6-11a6 6 0 10-12 0c0 4.8 6 11 6 11z" stroke="currentColor" strokeWidth="1.8" />
+                      <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+                    </svg>
+                  </span>
+                  <span>{userLocation}</span>
+                </div>
+                {userEmail && <div className="info-row muted">{userEmail}</div>}
+              </div>
+            </div>
+
+            <div className="menu">
+              <button className="menu-item" onClick={() => onNavigate("dashboard")}>
+                <span className="menu-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M4 11.5L12 4l8 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M7 10.5v8h10v-8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                Dashboard
+              </button>
+              <button className="menu-item" onClick={() => onNavigate("petitions")}>
+                <span className="menu-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M5 8h8M5 12h8M5 16h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </span>
+                Petitions
+              </button>
+              <button className="menu-item" onClick={() => onNavigate("polls")}>
+                <span className="menu-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h4v7H5v-7zM10 5h4v14h-4V5zM15 9h4v10h-4V9z" stroke="currentColor" strokeWidth="1.8" />
+                  </svg>
+                </span>
+                Polls
+              </button>
+              <button className="menu-item active" onClick={() => onNavigate("officials")}>
+                <span className="menu-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M16 11a4 4 0 10-8 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M6 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </span>
+                Officials
+              </button>
+              <button className="menu-item" onClick={() => onNavigate("reports")}>
+                <span className="menu-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M6 4h12v16H6z" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </span>
+                Reports
+              </button>
+              <button className="menu-item" onClick={() => onNavigate("settings")}>
+                <span className="menu-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M19 12a7 7 0 01-.2 1.6l2 1.6-2 3.4-2.3-.8a7 7 0 01-2.7 1.6l-.4 2.4H10l-.4-2.4a7 7 0 01-2.7-1.6l-2.3.8-2-3.4 2-1.6A7 7 0 014 12a7 7 0 01.2-1.6l-2-1.6 2-3.4 2.3.8a7 7 0 012.7-1.6L10 2h4l.4 2.4a7 7 0 012.7 1.6l2.3-.8 2 3.4-2 1.6c.1.5.2 1 .2 1.6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                Settings
+              </button>
+            </div>
+
+            <div className="help-card" onClick={() => onNavigate("help")}>
+              <span className="menu-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M9.5 9.5a2.5 2.5 0 014 2c0 1.5-2 1.5-2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <circle cx="12" cy="17" r="1" fill="currentColor" />
+                </svg>
+              </span>
+              Help & Support
+            </div>
+
+            <button className="logout-btn" onClick={onLogout}>
+              <span className="menu-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              Logout
+            </button>
+          </aside>
+
+          <main className="content">
+            <section className="welcome-card">
+              <div>
+                <h2>Government Officials & Departments</h2>
+                <p>Find verified public department information, contacts, and official service portals for civic issues.</p>
+              </div>
+            </section>
+
+            {/* Six Department Cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "18px", marginBottom: "32px" }}>
+              {[
+                { name: "Environmental Department", desc: "Air quality, pollution control, waste management, sustainability", contact: "1800-11-8600", email: "support@ecopolicy.gov.in" },
+                { name: "Infrastructure Department", desc: "Roads, public utilities, urban works and civic infrastructure", contact: "1800-11-3434", email: "info@indan.nic.in" },
+                { name: "Education Department", desc: "Schools, higher education, skill development and literacy", contact: "1800-11-6969", email: "feedback@education.gov.in" },
+                { name: "Public Safety Department", desc: "Low & order, emergency response, disaster management support", contact: "112", email: "citizen@ndma.gov.in" },
+                { name: "Transportation Department", desc: "Public transport planning, traffic systems, mobility services", contact: "1800-11-0400", email: "helpdesk@transport.gov.in" },
+                { name: "Healthcare Department", desc: "Public health services, hospitals, disease control, health schemes", contact: "1075", email: "helpdesk-nhm@gov.in" },
+              ].map((dept) => (
+                <div key={dept.name} className="stat-card" style={{ background: "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(243, 232, 255, 0.8) 100%)" }}>
+                  <h3 style={{ margin: "0 0 8px 0", fontSize: "17px", fontWeight: "700", color: "#1f2937" }}>{dept.name}</h3>
+                  <p style={{ margin: "0 0 14px 0", fontSize: "13px", color: "#6b7280", lineHeight: "1.5" }}>{dept.desc}</p>
+                  <div style={{ fontSize: "13px", marginBottom: "14px", paddingBottom: "12px", borderBottom: "1px solid rgba(168, 85, 247, 0.1)" }}>
+                    <p style={{ margin: "0 0 4px 0" }}><strong>Contact:</strong> {dept.contact}</p>
+                    <p style={{ margin: "0" }}><strong>Email:</strong> {dept.email}</p>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button 
+                      onClick={() => setContactForm({ ...contactForm, department: dept.name })}
+                      style={{
+                        flex: 1,
+                        padding: "9px 12px",
+                        background: "var(--gradient-purple)",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "10px",
+                        fontWeight: "600",
+                        fontSize: "13px",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease",
+                      }}
+                      onMouseEnter={(e) => e.target.style.boxShadow = "0 4px 12px rgba(168, 85, 247, 0.3)"}
+                      onMouseLeave={(e) => e.target.style.boxShadow = "none"}
+                    >
+                      Contact
+                    </button>
+                    <button 
+                      style={{
+                        flex: 1,
+                        padding: "9px 12px",
+                        background: "linear-gradient(135deg, #fce7f3 0%, #f3e8ff 100%)",
+                        color: "#a855f7",
+                        border: "1px solid rgba(168, 85, 247, 0.2)",
+                        borderRadius: "10px",
+                        fontWeight: "600",
+                        fontSize: "13px",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease",
+                      }}
+                      onMouseEnter={(e) => e.target.style.background = "linear-gradient(135deg, #f3e8ff 0%, #fce7f3 100%)"}
+                    >
+                      Website
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Contact Form Section */}
+            <section className="welcome-card">
+              <div>
+                <h2>Contact Public Officials</h2>
+                <p>Send a message directly to government departments about your civic concerns.</p>
+              </div>
+            </section>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "32px" }}>
+              {/* Contact Form */}
+              <div className="stat-card" style={{ background: "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(243, 232, 255, 0.8) 100%)", display: "flex", flexDirection: "column" }}>
+                <h3 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: "700", color: "#1f2937" }}>Send Message</h3>
+                
+                <div style={{ marginBottom: "14px" }}>
+                  <label style={{ display: "block", marginBottom: "6px", fontWeight: "600", fontSize: "13px", color: "#4b5563" }}>Select Department</label>
+                  <select
+                    value={contactForm.department}
+                    onChange={(e) => setContactForm({ ...contactForm, department: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(168, 85, 247, 0.2)",
+                      fontSize: "13px",
+                      fontFamily: "inherit",
+                      backgroundColor: "white",
+                      color: "#1f2937",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option>Environmental Department</option>
+                    <option>Infrastructure Department</option>
+                    <option>Education Department</option>
+                    <option>Public Safety Department</option>
+                    <option>Transportation Department</option>
+                    <option>Healthcare Department</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: "14px" }}>
+                  <label style={{ display: "block", marginBottom: "6px", fontWeight: "600", fontSize: "13px", color: "#4b5563" }}>Subject</label>
+                  <input
+                    type="text"
+                    placeholder="What is your concern?"
+                    value={contactForm.subject}
+                    onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(168, 85, 247, 0.2)",
+                      fontSize: "13px",
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "16px", flex: 1 }}>
+                  <label style={{ display: "block", marginBottom: "6px", fontWeight: "600", fontSize: "13px", color: "#4b5563" }}>Message</label>
+                  <textarea
+                    placeholder="Describe your issue in detail..."
+                    value={contactForm.message}
+                    onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(168, 85, 247, 0.2)",
+                      minHeight: "120px",
+                      fontFamily: "inherit",
+                      fontSize: "13px",
+                      boxSizing: "border-box",
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+
+                <button
+                  onClick={handleSendContactMessage}
+                  style={{
+                    width: "100%",
+                    padding: "11px",
+                    background: "var(--gradient-purple)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    fontWeight: "700",
+                    fontSize: "14px",
+                    transition: "all 0.3s ease",
+                    boxShadow: "0 4px 12px rgba(168, 85, 247, 0.2)",
+                  }}
+                  onMouseEnter={(e) => e.target.style.boxShadow = "0 6px 16px rgba(168, 85, 247, 0.3)"}
+                  onMouseLeave={(e) => e.target.style.boxShadow = "0 4px 12px rgba(168, 85, 247, 0.2)"}
+                >
+                  Send Message
+                </button>
+              </div>
+
+              {/* Messages History */}
+              <div className="stat-card" style={{ background: "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(243, 232, 255, 0.8) 100%)", display: "flex", flexDirection: "column" }}>
+                <h3 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: "700", color: "#1f2937" }}>Your Messages ({contactMessages.length})</h3>
+                
+                <div style={{ flex: 1, overflowY: "auto", maxHeight: "350px" }}>
+                  {loadingMessages ? (
+                    <p style={{ color: "#9ca3af", fontSize: "13px" }}>Loading messages...</p>
+                  ) : contactMessages.length === 0 ? (
+                    <p style={{ color: "#9ca3af", fontSize: "13px" }}>No messages yet. Send one to the left!</p>
+                  ) : (
+                    contactMessages.map((msg) => (
+                      <div key={msg._id} style={{ marginBottom: "12px", paddingBottom: "12px", borderBottom: "1px solid rgba(168, 85, 247, 0.1)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "6px", gap: "8px" }}>
+                          <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "#1f2937" }}>{msg.department}</h4>
+                          <span style={{
+                            fontSize: "11px",
+                            padding: "3px 8px",
+                            borderRadius: "6px",
+                            whiteSpace: "nowrap",
+                            backgroundColor: msg.status === "responded" ? "#dcfce7" : msg.status === "read" ? "#dbeafe" : "#fef3c7",
+                            color: msg.status === "responded" ? "#166534" : msg.status === "read" ? "#1e40af" : "#92400e",
+                            fontWeight: "600",
+                          }}>
+                            {msg.status === "responded" ? "✓ Replied" : msg.status === "read" ? "Opened" : "New"}
+                          </span>
+                        </div>
+                        <p style={{ margin: "0 0 4px 0", fontSize: "12px", fontWeight: "600", color: "#4b5563" }}>{msg.subject}</p>
+                        <p style={{ margin: "0", fontSize: "12px", color: "#6b7280", lineHeight: "1.4" }}>{msg.message.substring(0, 80)}...</p>
+                        {msg.officialResponse && (
+                          <div style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", padding: "8px", borderRadius: "6px", marginTop: "8px", fontSize: "12px", borderLeft: "3px solid #10b981" }}>
+                            <strong style={{ color: "#10b981" }}>Response:</strong>
+                            <p style={{ margin: "4px 0 0 0", color: "#059669" }}>{msg.officialResponse.substring(0, 60)}...</p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </main>
         </div>
       </div>
     );
@@ -537,7 +993,54 @@ const Officials = ({ userData, onLogout, onNavigate, onUpdateUser }) => {
             </div>
           </section>
 
+          <section className="official-section">
+            <div className="official-section-head">
+              <h2>Citizen Contact Messages</h2>
+              <p>Messages from citizens regarding civic issues and department concerns</p>
+            </div>
 
+            <div className="official-list">
+              {contactMessages.length === 0 ? (
+                <p>No citizen messages yet.</p>
+              ) : (
+                contactMessages.map((msg) => (
+                  <article key={msg._id} className="official-list-card">
+                    <div className="official-list-top">
+                      <h4>{msg.subject}</h4>
+                      <span>{msg.department}</span>
+                    </div>
+                    <div style={{ marginBottom: "10px" }}>
+                      <p><strong>From:</strong> {msg.citizenName} ({msg.citizenEmail})</p>
+                      <p><strong>Location:</strong> {msg.location || "Not specified"}</p>
+                      <p><strong>Status:</strong> <span style={{ 
+                        padding: "4px 8px", 
+                        borderRadius: "4px", 
+                        fontSize: "12px",
+                        backgroundColor: msg.status === "responded" ? "#d4edda" : msg.status === "read" ? "#cfe2ff" : "#fff3cd"
+                      }}>{msg.status === "responded" ? "✓ Responded" : msg.status === "read" ? "Opened" : "New"}</span></p>
+                    </div>
+                    <p><strong>Message:</strong></p>
+                    <p>{msg.message}</p>
+                    {msg.officialResponse && (
+                      <div style={{ backgroundColor: "#e8f5e9", padding: "10px", borderRadius: "4px", marginTop: "10px" }}>
+                        <p><strong>Your Response:</strong></p>
+                        <p>{msg.officialResponse}</p>
+                        <p style={{ fontSize: "12px", color: "#666", marginTop: "8px" }}>
+                          Responded on {new Date(msg.respondedAt).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    <div className="official-actions-row">
+                      {!msg.officialResponse && (
+                        <button onClick={() => handleRespondToMessage(msg._id)}>Respond</button>
+                      )}
+                      <button className="secondary" disabled>Sent {new Date(msg.createdAt).toLocaleDateString()}</button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
 
           <section className="official-section">
             <div className="official-section-head">
