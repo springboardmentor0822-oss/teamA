@@ -16,7 +16,7 @@ const petitionResponseSchema = new mongoose.Schema({
   },
   status_update: {
     type: String,
-    enum: ["active", "under_review", "closed"],
+    enum: ["active", "under_review", "closed", "resolved"],
   },
 }, { timestamps: true });
 
