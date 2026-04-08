@@ -306,34 +306,49 @@ const SettingsOfficials = ({ userData, onNavigate, onUpdateUser, onLogout }) => 
               <article className="official-panel">
                 <h4>Display & Notifications</h4>
                 <div className="official-pref-stack">
-                  <label>
-                    <input type="checkbox" checked={darkMode} onChange={handleDarkModeToggle} />
-                    Enable dark mode
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={prefEmailAlerts}
-                      onChange={(e) => setPrefEmailAlerts(e.target.checked)}
-                    />
-                    Email notifications
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={prefInAppAlerts}
-                      onChange={(e) => setPrefInAppAlerts(e.target.checked)}
-                    />
-                    In-app alerts
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={prefCriticalOnly}
-                      onChange={(e) => setPrefCriticalOnly(e.target.checked)}
-                    />
-                    Critical alerts only
-                  </label>
+                  <div className="pref-toggle-row">
+                    <span>Dark mode</span>
+                    <button
+                      type="button"
+                      className={`toggle-btn ${darkMode ? "active" : ""}`}
+                      onClick={handleDarkModeToggle}
+                    >
+                      <span className="toggle-slider" />
+                    </button>
+                  </div>
+
+                  <div className="pref-toggle-row">
+                    <span>Email notifications</span>
+                    <button
+                      type="button"
+                      className={`toggle-btn ${prefEmailAlerts ? "active" : ""}`}
+                      onClick={() => setPrefEmailAlerts(!prefEmailAlerts)}
+                    >
+                      <span className="toggle-slider" />
+                    </button>
+                  </div>
+
+                  <div className="pref-toggle-row">
+                    <span>In-app alerts</span>
+                    <button
+                      type="button"
+                      className={`toggle-btn ${prefInAppAlerts ? "active" : ""}`}
+                      onClick={() => setPrefInAppAlerts(!prefInAppAlerts)}
+                    >
+                      <span className="toggle-slider" />
+                    </button>
+                  </div>
+
+                  <div className="pref-toggle-row">
+                    <span>Critical alerts only</span>
+                    <button
+                      type="button"
+                      className={`toggle-btn ${prefCriticalOnly ? "active" : ""}`}
+                      onClick={() => setPrefCriticalOnly(!prefCriticalOnly)}
+                    >
+                      <span className="toggle-slider" />
+                    </button>
+                  </div>
                 </div>
                 <button onClick={handleSavePreferences}>Save Preferences</button>
               </article>
