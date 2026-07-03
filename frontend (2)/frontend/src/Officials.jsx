@@ -1,5 +1,80 @@
-import { useState } from "react";
+import axios from "axios";
+import { useEffect, useState } from "react";
 import "./civic.css";
+
+const defaultDepartments = [
+  {
+    name: "Environmental Department",
+    scope: "Air quality, pollution control, waste management, sustainability",
+    contact: "1800-11-8600",
+    email: "support@cpcb.gov.in",
+    website: "https://cpcb.nic.in/",
+    grievance: "https://pgportal.gov.in/",
+  },
+  {
+    name: "Infrastructure Department",
+    scope: "Roads, public utilities, urban works and civic infrastructure",
+    contact: "1800-11-3434",
+    email: "info@morth.nic.in",
+    website: "https://morth.nic.in/",
+    grievance: "https://pgportal.gov.in/",
+  },
+  {
+    name: "Education Department",
+    scope: "Schools, higher education, skill development and literacy",
+    contact: "1800-11-6969",
+    email: "feedback@education.gov.in",
+    website: "https://www.education.gov.in/",
+    grievance: "https://pgportal.gov.in/",
+  },
+  {
+    name: "Public Safety Department",
+    scope: "Law & order, emergency response, disaster management support",
+    contact: "112",
+    email: "citizen@ndma.gov.in",
+    website: "https://ndma.gov.in/",
+    grievance: "https://pgportal.gov.in/",
+  },
+  {
+    name: "Transportation Department",
+    scope: "Public transport planning, traffic systems, mobility services",
+    contact: "1800-11-0400",
+    email: "helpdesk@transport.gov.in",
+    website: "https://parivahan.gov.in/",
+    grievance: "https://pgportal.gov.in/",
+  },
+  {
+    name: "Healthcare Department",
+    scope: "Public health services, hospitals, disease control, health schemes",
+    contact: "1075",
+    email: "helpdesk-nhm@gov.in",
+    website: "https://www.mohfw.gov.in/",
+    grievance: "https://pgportal.gov.in/",
+  },
+];
+
+const defaultPublicResources = [
+  {
+    title: "Centralized Public Grievance Portal",
+    description: "File complaints and track resolution by ministry/department.",
+    link: "https://pgportal.gov.in/",
+  },
+  {
+    title: "MyGov India",
+    description: "Participate in policy discussions and civic campaigns.",
+    link: "https://www.mygov.in/",
+  },
+  {
+    title: "Open Government Data Platform",
+    description: "Access government datasets for insights and transparency.",
+    link: "https://data.gov.in/",
+  },
+  {
+    title: "National Portal of India",
+    description: "Official directory of ministries, schemes, and citizen services.",
+    link: "https://www.india.gov.in/",
+  },
+];
 
 const Officials = ({ userData, onLogout, onNavigate }) => {
   const user = userData || {};
@@ -10,80 +85,36 @@ const Officials = ({ userData, onLogout, onNavigate }) => {
   const userRole = user.role === "official" ? "Unverified Official" : "Citizen";
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [departments, setDepartments] = useState(defaultDepartments);
+  const [publicResources, setPublicResources] = useState(defaultPublicResources);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const departments = [
-    {
-      name: "Environmental Department",
-      scope: "Air quality, pollution control, waste management, sustainability",
-      contact: "1800-11-8600",
-      email: "support@cpcb.gov.in",
-      website: "https://cpcb.nic.in/",
-      grievance: "https://pgportal.gov.in/",
-    },
-    {
-      name: "Infrastructure Department",
-      scope: "Roads, public utilities, urban works and civic infrastructure",
-      contact: "1800-11-3434",
-      email: "info@morth.nic.in",
-      website: "https://morth.nic.in/",
-      grievance: "https://pgportal.gov.in/",
-    },
-    {
-      name: "Education Department",
-      scope: "Schools, higher education, skill development and literacy",
-      contact: "1800-11-6969",
-      email: "feedback@education.gov.in",
-      website: "https://www.education.gov.in/",
-      grievance: "https://pgportal.gov.in/",
-    },
-    {
-      name: "Public Safety Department",
-      scope: "Law & order, emergency response, disaster management support",
-      contact: "112",
-      email: "citizen@ndma.gov.in",
-      website: "https://ndma.gov.in/",
-      grievance: "https://pgportal.gov.in/",
-    },
-    {
-      name: "Transportation Department",
-      scope: "Public transport planning, traffic systems, mobility services",
-      contact: "1800-11-0400",
-      email: "helpdesk@transport.gov.in",
-      website: "https://parivahan.gov.in/",
-      grievance: "https://pgportal.gov.in/",
-    },
-    {
-      name: "Healthcare Department",
-      scope: "Public health services, hospitals, disease control, health schemes",
-      contact: "1075",
-      email: "helpdesk-nhm@gov.in",
-      website: "https://www.mohfw.gov.in/",
-      grievance: "https://pgportal.gov.in/",
-    },
-  ];
+  useEffect(() => {
+    const fetchOfficialsDirectory = async () => {
+      try {
+        const res = await axios.get("http://localhost:5000/api/officials/directory");
+        const nextDepartments = Array.isArray(res.data?.departments)
+          ? res.data.departments
+          : defaultDepartments;
+        const nextResources = Array.isArray(res.data?.publicResources)
+          ? res.data.publicResources
+          : defaultPublicResources;
 
-  const publicResources = [
-    {
-      title: "Centralized Public Grievance Portal",
-      description: "File complaints and track resolution by ministry/department.",
-      link: "https://pgportal.gov.in/",
-    },
-    {
-      title: "MyGov India",
-      description: "Participate in policy discussions and civic campaigns.",
-      link: "https://www.mygov.in/",
-    },
-    {
-      title: "Open Government Data Platform",
-      description: "Access government datasets for insights and transparency.",
-      link: "https://data.gov.in/",
-    },
-    {
-      title: "National Portal of India",
-      description: "Official directory of ministries, schemes, and citizen services.",
-      link: "https://www.india.gov.in/",
-    },
-  ];
+        setDepartments(nextDepartments);
+        setPublicResources(nextResources);
+        setError("");
+      } catch (fetchError) {
+        setDepartments(defaultDepartments);
+        setPublicResources(defaultPublicResources);
+        setError("Unable to fetch officials directory. Showing default data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOfficialsDirectory();
+  }, []);
 
   return (
     <div className="dashboard-page">
@@ -185,6 +216,16 @@ const Officials = ({ userData, onLogout, onNavigate }) => {
               <p>Find verified public department information, contacts, and official service portals for civic issues.</p>
             </div>
           </section>
+
+          {loading && (
+            <div className="success-message-banner">Loading officials directory...</div>
+          )}
+
+          {error && (
+            <div className="success-message-banner" style={{ background: "#fee2e2", color: "#991b1b" }}>
+              {error}
+            </div>
+          )}
 
           <section className="officials-section">
             <h2 className="officials-title">Government Departments Reviewing Petitions</h2>

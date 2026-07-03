@@ -22,16 +22,6 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthInput());
   const [monthlyReport, setMonthlyReport] = useState(null);
   const [reportError, setReportError] = useState("");
-  const parseStoredCollection = (storageKey) => {
-    try {
-      const rawValue = localStorage.getItem(storageKey);
-      if (!rawValue) return [];
-      const parsedValue = JSON.parse(rawValue);
-      return Array.isArray(parsedValue) ? parsedValue : [];
-    } catch {
-      return [];
-    }
-  };
   const getCreatorTokens = (item) => {
     const tokens = [];
     if (item?.creator) {
@@ -60,12 +50,12 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
         ]);
         const petitions = Array.isArray(petitionsRes.data) ? petitionsRes.data : [];
         const pollsFromApi = Array.isArray(pollsRes.data) ? pollsRes.data : [];
-        const fallbackPolls = parseStoredCollection("civix_polls");
         setPetitionsData(petitions);
-        setPollsData(pollsFromApi.length > 0 ? pollsFromApi : fallbackPolls);
+        setPollsData(pollsFromApi);
       } catch (error) {
-        setPetitionsData(parseStoredCollection("civix_petitions"));
-        setPollsData(parseStoredCollection("civix_polls"));
+        setPetitionsData([]);
+        setPollsData([]);
+        setReportError("Unable to load petitions and polls data");
         console.log(error);
       }
     };
@@ -129,7 +119,10 @@ const Reports = ({ userData, onLogout, onNavigate }) => {
   const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
   const isPollExpired = (closesOn) => {
     if (!closesOn) return false;
-    const closeDate = new Date(`${closesOn}T23:59:59`);
+    const closeText = String(closesOn).trim();
+    const closeDate = closeText.includes("T")
+      ? new Date(closeText)
+      : new Date(`${closeText}T23:59:59`);
     if (Number.isNaN(closeDate.getTime())) return false;
     return Date.now() > closeDate.getTime();
   };
